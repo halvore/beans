@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
+	"time"
 )
 
 // runningProcess wraps an active claude CLI process.
@@ -17,15 +19,41 @@ type runningProcess struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	cancel context.CancelFunc
+	done   chan struct{} // closed by spawnAndRun when the process exits
 }
 
-// kill terminates the running process.
-func (p *runningProcess) kill() {
-	if p.cancel != nil {
-		p.cancel()
+// signal sends SIGINT and closes stdin to request a graceful shutdown.
+// Does not block — the process may still be running when this returns.
+// Used by handleBlockingTool (which runs inside the readOutput goroutine
+// and cannot wait for the process to exit without deadlocking).
+func (p *runningProcess) signal() {
+	if p.cmd == nil || p.cmd.Process == nil {
+		return
 	}
-	if p.cmd != nil && p.cmd.Process != nil {
+	if p.stdin != nil {
+		_ = p.stdin.Close()
+	}
+	_ = p.cmd.Process.Signal(syscall.SIGINT)
+}
+
+// kill gracefully terminates the running process and waits for it to exit.
+// Sends SIGINT first to give Claude Code a chance to save its session state
+// (needed for --resume to work). Falls back to SIGKILL after a timeout.
+func (p *runningProcess) kill() {
+	p.signal()
+
+	// Wait up to 3 seconds for the process to exit cleanly.
+	// The done channel is closed by spawnAndRun after cmd.Wait() returns.
+	select {
+	case <-p.done:
+		// Process exited cleanly — session state should be saved
+	case <-time.After(3 * time.Second):
+		// Force kill after timeout
+		if p.cancel != nil {
+			p.cancel()
+		}
 		_ = p.cmd.Process.Kill()
+		<-p.done // wait for spawnAndRun to finish cleanup
 	}
 }
 
@@ -85,7 +113,7 @@ func (m *Manager) spawnAndRun(beanID string, session *Session) {
 		return
 	}
 
-	proc := &runningProcess{cmd: cmd, stdin: stdin, cancel: cancel}
+	proc := &runningProcess{cmd: cmd, stdin: stdin, cancel: cancel, done: make(chan struct{})}
 
 	m.mu.Lock()
 	m.processes[beanID] = proc
@@ -99,7 +127,7 @@ func (m *Manager) spawnAndRun(beanID string, session *Session) {
 		}
 	}()
 
-	log.Printf("[agent:%s] spawned claude process (pid=%d, dir=%s)", beanID, cmd.Process.Pid, session.WorkDir)
+	log.Printf("[agent:%s] spawned claude process (pid=%d, dir=%s, args=%v)", beanID, cmd.Process.Pid, session.WorkDir, args)
 
 	// Send the initial user message
 	lastMsg := session.Messages[len(session.Messages)-1]
@@ -112,13 +140,19 @@ func (m *Manager) spawnAndRun(beanID string, session *Session) {
 	// Read stdout line by line
 	m.readOutput(beanID, stdout)
 
-	// Process exited — clean up
+	// Process exited — clean up.
+	// Only modify state if this proc is still the current one for this beanID.
+	// A new process may have already been spawned (e.g. after handleBlockingTool
+	// signaled us and the user sent a new message), so we must not clobber it.
 	_ = cmd.Wait()
+	close(proc.done)
 
 	m.mu.Lock()
-	delete(m.processes, beanID)
-	if s, ok := m.sessions[beanID]; ok && s.Status == StatusRunning {
-		s.Status = StatusIdle
+	if m.processes[beanID] == proc {
+		delete(m.processes, beanID)
+		if s, ok := m.sessions[beanID]; ok && s.Status == StatusRunning {
+			s.Status = StatusIdle
+		}
 	}
 	m.mu.Unlock()
 
@@ -179,8 +213,13 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader) {
 			}
 
 		case eventToolUse:
-			// Handle blocking tools that require user interaction
-			if interaction := blockingInteraction(ev.ToolName); interaction != nil {
+			// Handle blocking tools that require user interaction.
+			// Check session state to avoid re-intercepting mode switches
+			// that already took effect (e.g. after --resume).
+			m.mu.RLock()
+			sess := m.sessions[beanID]
+			m.mu.RUnlock()
+			if interaction := blockingInteraction(ev.ToolName, sess); interaction != nil {
 				m.handleBlockingTool(beanID, interaction)
 			}
 
@@ -348,11 +387,21 @@ func (m *Manager) setError(beanID, errMsg string) {
 
 // blockingInteraction returns a PendingInteraction if the tool name is a blocking
 // tool that requires user approval, or nil for regular tools.
-func blockingInteraction(toolName string) *PendingInteraction {
+// Mode-switch tools (ExitPlanMode/EnterPlanMode) are only blocking when the
+// session is actually in the mode being exited/entered — this prevents infinite
+// loops when a resumed process retries the same tool call after we already
+// toggled the mode.
+func blockingInteraction(toolName string, session *Session) *PendingInteraction {
 	switch toolName {
 	case "ExitPlanMode":
+		if session != nil && !session.PlanMode {
+			return nil // already exited plan mode (e.g. after resume)
+		}
 		return &PendingInteraction{Type: InteractionExitPlan}
 	case "EnterPlanMode":
+		if session != nil && session.PlanMode {
+			return nil // already in plan mode
+		}
 		return &PendingInteraction{Type: InteractionEnterPlan}
 	case "AskUserQuestion":
 		return &PendingInteraction{Type: InteractionAskUser}
@@ -401,7 +450,9 @@ func (m *Manager) handleBlockingTool(beanID string, interaction *PendingInteract
 	m.mu.Unlock()
 
 	if hasProc && proc != nil {
-		proc.kill()
+		// Use signal() not kill() — we're inside the readOutput goroutine
+		// (same goroutine as spawnAndRun), so blocking on proc.done would deadlock.
+		proc.signal()
 	}
 
 	m.notify(beanID)

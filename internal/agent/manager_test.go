@@ -436,25 +436,35 @@ func TestHandleBlockingTool_AskUser(t *testing.T) {
 }
 
 func TestBlockingInteraction(t *testing.T) {
+	inPlanMode := &Session{PlanMode: true}
+	notInPlanMode := &Session{PlanMode: false}
+
 	tests := []struct {
+		name     string
 		toolName string
+		session  *Session
 		expected *PendingInteraction
 	}{
-		{"ExitPlanMode", &PendingInteraction{Type: InteractionExitPlan}},
-		{"EnterPlanMode", &PendingInteraction{Type: InteractionEnterPlan}},
-		{"AskUserQuestion", &PendingInteraction{Type: InteractionAskUser}},
-		{"Read", nil},
-		{"Write", nil},
-		{"", nil},
+		{"ExitPlanMode when in plan mode", "ExitPlanMode", inPlanMode, &PendingInteraction{Type: InteractionExitPlan}},
+		{"ExitPlanMode when not in plan mode (no-op)", "ExitPlanMode", notInPlanMode, nil},
+		{"EnterPlanMode when not in plan mode", "EnterPlanMode", notInPlanMode, &PendingInteraction{Type: InteractionEnterPlan}},
+		{"EnterPlanMode when already in plan mode (no-op)", "EnterPlanMode", inPlanMode, nil},
+		{"AskUserQuestion", "AskUserQuestion", notInPlanMode, &PendingInteraction{Type: InteractionAskUser}},
+		{"regular tool Read", "Read", notInPlanMode, nil},
+		{"regular tool Write", "Write", notInPlanMode, nil},
+		{"empty tool name", "", notInPlanMode, nil},
+		{"nil session", "ExitPlanMode", nil, &PendingInteraction{Type: InteractionExitPlan}},
 	}
 
 	for _, tt := range tests {
-		got := blockingInteraction(tt.toolName)
-		if tt.expected == nil && got != nil {
-			t.Errorf("blockingInteraction(%q) = %v, want nil", tt.toolName, got)
-		} else if tt.expected != nil && (got == nil || got.Type != tt.expected.Type) {
-			t.Errorf("blockingInteraction(%q) = %v, want %v", tt.toolName, got, tt.expected)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			got := blockingInteraction(tt.toolName, tt.session)
+			if tt.expected == nil && got != nil {
+				t.Errorf("blockingInteraction(%q) = %v, want nil", tt.toolName, got)
+			} else if tt.expected != nil && (got == nil || got.Type != tt.expected.Type) {
+				t.Errorf("blockingInteraction(%q) = %v, want %v", tt.toolName, got, tt.expected)
+			}
+		})
 	}
 }
 

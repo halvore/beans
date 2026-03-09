@@ -60,6 +60,12 @@
 		store.sendMessage(beanId, 'yes, proceed');
 	}
 
+	function approveInteractionWithYolo() {
+		if (!pendingInteraction) return;
+		store.setYoloMode(beanId, true);
+		store.sendMessage(beanId, 'yes, proceed');
+	}
+
 	function rejectInteraction() {
 		if (!pendingInteraction) return;
 		if (pendingInteraction.type === 'EXIT_PLAN') {
@@ -219,7 +225,7 @@
 				<button
 					onclick={approveInteraction}
 					class={[
-						'rounded px-3 py-1 text-xs font-mono transition-colors',
+						'rounded px-3 py-1 text-xs font-mono transition-colors cursor-pointer',
 						pendingInteraction.type === 'EXIT_PLAN'
 							? 'bg-status-in-progress-text text-white hover:opacity-90'
 							: 'bg-warning text-white hover:opacity-90'
@@ -227,9 +233,17 @@
 				>
 					Approve
 				</button>
+				{#if pendingInteraction.type === 'EXIT_PLAN'}
+					<button
+						onclick={approveInteractionWithYolo}
+						class="rounded px-3 py-1 text-xs font-mono cursor-pointer bg-danger text-white hover:opacity-90 transition-colors"
+					>
+						Approve with YOLO
+					</button>
+				{/if}
 				<button
 					onclick={rejectInteraction}
-					class="rounded px-3 py-1 text-xs font-mono border border-border text-text-muted hover:bg-surface-alt transition-colors"
+					class="rounded px-3 py-1 text-xs font-mono cursor-pointer border border-border text-text-muted hover:bg-surface-alt transition-colors"
 				>
 					Reject
 				</button>
