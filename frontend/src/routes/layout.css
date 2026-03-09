@@ -12,7 +12,7 @@ a,
 }
 
 .btn-primary {
-	@apply rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-text transition-opacity hover:opacity-90;
+	@apply h-8 rounded-md bg-accent px-3 text-sm font-medium text-accent-text transition-opacity hover:opacity-90;
 }
 
 .btn-icon {
