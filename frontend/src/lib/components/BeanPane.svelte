@@ -37,21 +37,25 @@
 		<div class="flex">
 			<button
 				onclick={() => setTab('bean')}
-				class="px-3 py-1 text-sm font-medium border transition-colors
-					{hasWorktree ? 'rounded-l-md' : 'rounded-md'}
-					{activeTab === 'bean'
-					? 'bg-accent text-accent-text border-accent'
-					: 'bg-surface border-border text-text-muted hover:bg-surface-alt'}"
+				class={[
+					"px-3 py-1 text-sm font-medium border transition-colors",
+					hasWorktree ? "rounded-l-md" : "rounded-md",
+					activeTab === "bean"
+						? "bg-accent text-accent-text border-accent"
+						: "bg-surface border-border text-text-muted hover:bg-surface-alt"
+				]}
 			>
 				Bean
 			</button>
 			{#if hasWorktree}
 				<button
 					onclick={() => setTab('chat')}
-					class="px-3 py-1 text-sm font-medium rounded-r-md border border-l-0 transition-colors
-						{activeTab === 'chat'
-						? 'bg-accent text-accent-text border-accent'
-						: 'bg-surface border-border text-text-muted hover:bg-surface-alt'}"
+					class={[
+						"px-3 py-1 text-sm font-medium rounded-r-md border border-l-0 transition-colors",
+						activeTab === "chat"
+							? "bg-accent text-accent-text border-accent"
+							: "bg-surface border-border text-text-muted hover:bg-surface-alt"
+					]}
 				>
 					Chat
 				</button>

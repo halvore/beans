@@ -31,19 +31,23 @@
 				<div class="flex">
 					<button
 						onclick={() => ui.setPlanningView('backlog')}
-						class="px-3 py-1 text-sm font-medium rounded-l-md border transition-colors
-							{ui.planningView === 'backlog'
-							? 'bg-accent text-accent-text border-accent'
-							: 'bg-surface border-border text-text-muted hover:bg-surface-alt'}"
+						class={[
+							"px-3 py-1 text-sm font-medium rounded-l-md border transition-colors",
+							ui.planningView === "backlog"
+								? "bg-accent text-accent-text border-accent"
+								: "bg-surface border-border text-text-muted hover:bg-surface-alt"
+						]}
 					>
 						Backlog
 					</button>
 					<button
 						onclick={() => ui.setPlanningView('board')}
-						class="px-3 py-1 text-sm font-medium rounded-r-md border border-l-0 transition-colors
-							{ui.planningView === 'board'
-							? 'bg-accent text-accent-text border-accent'
-							: 'bg-surface border-border text-text-muted hover:bg-surface-alt'}"
+						class={[
+							"px-3 py-1 text-sm font-medium rounded-r-md border border-l-0 transition-colors",
+							ui.planningView === "board"
+								? "bg-accent text-accent-text border-accent"
+								: "bg-surface border-border text-text-muted hover:bg-surface-alt"
+						]}
 					>
 						Board
 					</button>

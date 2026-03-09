@@ -23,6 +23,14 @@ globs: ["frontend/**"]
 - Use **Tailwind CSS v4** utility classes. Avoid plain CSS or `<style>` blocks when Tailwind utilities suffice.
 - Define custom utility classes in the Tailwind theme (`@theme`) when a pattern repeats across components.
 - **All** interactive elements (`<button>`, `<a>`, clickable `<div>`s, etc.) must have `cursor-pointer`.
+- **Always use Svelte 5's array-based `class` syntax** for conditional classes instead of string interpolation. Falsy values are automatically filtered out:
+  ```svelte
+  <!-- DO: array syntax -->
+  <div class={["base-class", condition && "active", isOpen ? "open" : "closed"]} />
+
+  <!-- DON'T: string interpolation -->
+  <div class="base-class {condition ? 'active' : ''} {isOpen ? 'open' : 'closed'}" />
+  ```
 
 ## E2E Testing
 

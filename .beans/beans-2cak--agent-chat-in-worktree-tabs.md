@@ -5,7 +5,8 @@ status: in-progress
 type: feature
 priority: normal
 created_at: 2026-03-08T15:58:35Z
-updated_at: 2026-03-08T16:32:44Z
+updated_at: 2026-03-09T14:40:56Z
+order: V1u
 ---
 
 Implement agent chat within worktree tabs in the web UI. Spawn and manage Claude Code CLI sessions from the Go backend, stream output via GraphQL subscriptions, and provide a chat composer UI.

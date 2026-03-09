@@ -47,10 +47,12 @@
 				{cancelLabel}
 			</button>
 			<button
-				class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors
-					{danger
-					? 'bg-danger text-white hover:opacity-90'
-					: 'bg-accent text-accent-text hover:opacity-90'}"
+				class={[
+					"px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+					danger
+						? "bg-danger text-white hover:opacity-90"
+						: "bg-accent text-accent-text hover:opacity-90"
+				]}
 				onclick={onConfirm}
 			>
 				{confirmLabel}

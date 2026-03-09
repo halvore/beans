@@ -107,14 +107,18 @@
 {#snippet beanCard(b: Bean)}
 	<button
 		onclick={() => onSelect?.(b)}
-		class="w-full text-left rounded-lg p-2 border-l-2 transition-all bg-surface hover:bg-surface-alt
-			{typeBorders[b.type] ?? 'border-l-type-task-border'}"
+		class={[
+			"w-full text-left rounded-lg p-2 border-l-2 transition-all bg-surface hover:bg-surface-alt",
+			typeBorders[b.type] ?? "border-l-type-task-border"
+		]}
 	>
 		<div class="flex items-center gap-1.5 min-w-0">
 			<code class="text-[9px] text-text-faint shrink-0">{b.id.slice(-4)}</code>
 			<span class="text-xs text-text truncate flex-1">{b.title}</span>
-			<span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0
-				{statusColors[b.status] ?? 'bg-status-todo-bg text-status-todo-text'}">
+			<span class={[
+				"text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0",
+				statusColors[b.status] ?? "bg-status-todo-bg text-status-todo-text"
+			]}>
 				{b.status}
 			</span>
 		</div>
@@ -144,10 +148,10 @@
 					</svg>
 				{/if}
 			</button>
-			<span class="text-[11px] px-2 py-0.5 rounded-full font-medium {typeColors[bean.type] ?? 'bg-type-task-bg text-type-task-text'}">{bean.type}</span>
-			<span class="text-[11px] px-2 py-0.5 rounded-full font-medium {statusColors[bean.status] ?? 'bg-status-todo-bg text-status-todo-text'}">{bean.status}</span>
+			<span class={["text-[11px] px-2 py-0.5 rounded-full font-medium", typeColors[bean.type] ?? "bg-type-task-bg text-type-task-text"]}>{bean.type}</span>
+			<span class={["text-[11px] px-2 py-0.5 rounded-full font-medium", statusColors[bean.status] ?? "bg-status-todo-bg text-status-todo-text"]}>{bean.status}</span>
 			{#if bean.priority && bean.priority !== 'normal'}
-				<span class="text-[11px] px-2 py-0.5 rounded-full font-medium border {priorityColors[bean.priority] ?? ''}">
+				<span class={["text-[11px] px-2 py-0.5 rounded-full font-medium border", priorityColors[bean.priority]]}>
 					{bean.priority}
 				</span>
 			{/if}

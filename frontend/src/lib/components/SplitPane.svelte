@@ -84,7 +84,7 @@
 
 <div
 	bind:this={containerEl}
-	class="flex flex-1 min-h-0 min-w-0 {isHorizontal ? 'flex-row' : 'flex-col'}"
+	class={["flex flex-1 min-h-0 min-w-0", isHorizontal ? "flex-row" : "flex-col"]}
 >
 	{#if side === 'start'}
 		<!-- Fixed-size pane (start) -->
@@ -98,9 +98,11 @@
 		<!-- Resize handle -->
 		{#if !collapsed}
 			<div
-				class="shrink-0 transition-colors
-					{isHorizontal ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize'}
-					{isDragging ? 'bg-surface-dim' : 'bg-border hover:bg-surface-dim'}"
+				class={[
+					"shrink-0 transition-colors",
+					isHorizontal ? "w-1 cursor-col-resize" : "h-1 cursor-row-resize",
+					isDragging ? "bg-surface-dim" : "bg-border hover:bg-surface-dim"
+				]}
 				role="slider"
 				aria-orientation={isHorizontal ? 'horizontal' : 'vertical'}
 				aria-valuenow={size}
@@ -124,9 +126,11 @@
 		<!-- Resize handle -->
 		{#if !collapsed}
 			<div
-				class="shrink-0 transition-colors
-					{isHorizontal ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize'}
-					{isDragging ? 'bg-surface-dim' : 'bg-border hover:bg-surface-dim'}"
+				class={[
+					"shrink-0 transition-colors",
+					isHorizontal ? "w-1 cursor-col-resize" : "h-1 cursor-row-resize",
+					isDragging ? "bg-surface-dim" : "bg-border hover:bg-surface-dim"
+				]}
 				role="slider"
 				aria-orientation={isHorizontal ? 'horizontal' : 'vertical'}
 				aria-valuenow={size}

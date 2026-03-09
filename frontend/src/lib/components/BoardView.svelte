@@ -16,8 +16,16 @@
 	const columns = [
 		{ status: 'draft', label: 'Draft', color: 'bg-status-draft-bg text-status-draft-text' },
 		{ status: 'todo', label: 'Todo', color: 'bg-status-todo-bg text-status-todo-text' },
-		{ status: 'in-progress', label: 'In Progress', color: 'bg-status-in-progress-bg text-status-in-progress-text' },
-		{ status: 'completed', label: 'Completed', color: 'bg-status-completed-bg text-status-completed-text' }
+		{
+			status: 'in-progress',
+			label: 'In Progress',
+			color: 'bg-status-in-progress-bg text-status-in-progress-text'
+		},
+		{
+			status: 'completed',
+			label: 'Completed',
+			color: 'bg-status-completed-bg text-status-completed-text'
+		}
 	];
 
 	function beansForStatus(status: string): Bean[] {
@@ -194,30 +202,34 @@
 		if (!sameColumn) {
 			input.status = targetStatus;
 		}
-		client.mutation(UPDATE_BEAN, { id: beanId, input }).toPromise().then((result) => {
-			if (result.error) {
-				console.error('Failed to update bean:', result.error);
-			}
-		});
+		client
+			.mutation(UPDATE_BEAN, { id: beanId, input })
+			.toPromise()
+			.then((result) => {
+				if (result.error) {
+					console.error('Failed to update bean:', result.error);
+				}
+			});
 	}
 </script>
 
-<div class="h-full flex gap-4 p-4 overflow-x-auto">
+<div class="flex h-full gap-4 overflow-x-auto p-4">
 	{#each columns as col}
 		{@const beans = beansForStatus(col.status)}
-		<div class="flex flex-col min-w-[260px] w-[300px] shrink-0" data-status={col.status}>
+		<div class="flex w-[300px] min-w-[260px] shrink-0 flex-col" data-status={col.status}>
 			<!-- Column header -->
-			<div class="flex items-center gap-2 mb-3 px-1">
-				<span class="text-[11px] px-2 py-0.5 rounded-full font-medium {col.color}">{col.label}</span>
+			<div class="mb-3 flex items-center gap-2 px-1">
+				<span class={["rounded-full px-2 py-0.5 text-[11px] font-medium", col.color]}>{col.label}</span
+				>
 				<span class="text-xs text-text-faint">{beans.length}</span>
 			</div>
 
 			<!-- Cards (drop zone) -->
 			<div
-				class="flex-1 overflow-y-auto rounded-xl p-2 transition-colors
-					{dropTargetStatus === col.status && draggedBeanId
-					? 'bg-accent/10 ring-2 ring-accent/30'
-					: ''}"
+				class={[
+					"flex-1 overflow-y-auto rounded-xl p-2 transition-colors",
+					dropTargetStatus === col.status && draggedBeanId && "bg-accent/10 ring-2 ring-accent/30"
+				]}
 				role="list"
 				ondragover={(e) => onColumnDragOver(e, col.status, beans.length)}
 				ondragleave={(e) => onDragLeave(e, e.currentTarget)}
@@ -226,34 +238,47 @@
 				{#each beans as bean, index (bean.id)}
 					<!-- Drop indicator (always present, transparent unless active) -->
 					<div
-						class="h-0.5 rounded-full mx-1 my-1 transition-colors
-							{dropTargetStatus === col.status && draggedBeanId && draggedBeanId !== bean.id && dropIndex === index
-							? 'bg-accent' : 'bg-transparent'}"
+						class={[
+							"mx-1 my-1 h-0.5 rounded-full transition-colors",
+							dropTargetStatus === col.status && draggedBeanId && draggedBeanId !== bean.id && dropIndex === index
+								? "bg-accent"
+								: "bg-transparent"
+						]}
 					></div>
 
 					<div
-						class="rounded-lg border border-border bg-surface shadow-sm border-l-3 transition-all
-							{worktreeStore.hasWorktree(bean.id) ? 'border-l-success' : typeBorders[bean.type] ?? 'border-l-type-task-border'}
-							{draggedBeanId === bean.id ? 'opacity-40' : 'hover:shadow-md'}
-							{selectedId === bean.id ? 'ring-1 ring-accent bg-accent/5' : ''}"
+						class={[
+							"relative overflow-hidden rounded border border-l-5 border-border bg-surface shadow transition-all",
+							typeBorders[bean.type] ?? "border-l-type-task-border",
+							draggedBeanId === bean.id ? "opacity-40" : "hover:shadow-md",
+							selectedId === bean.id && "bg-accent/5 ring-1 ring-accent"
+						]}
 						draggable="true"
 						ondragstart={(e) => onDragStart(e, bean)}
 						ondragend={onDragEnd}
 						ondragover={(e) => onCardDragOver(e, col.status, index)}
 						role="listitem"
 					>
-						<button class="p-3 text-left w-full" onclick={() => onSelect?.(bean)}>
-							<div class="flex items-start gap-2 min-w-0">
-								<span class="text-sm text-text flex-1 leading-snug">{bean.title}</span>
+						{#if worktreeStore.hasWorktree(bean.id)}
+							<div class="absolute top-0 right-0 size-4 bg-success" style="clip-path: polygon(0 0, 100% 0, 100% 100%)"></div>
+						{/if}
+						<button class="w-full p-3 text-left" onclick={() => onSelect?.(bean)}>
+							<div class="flex min-w-0 items-start gap-2">
+								<span class="flex-1 text-sm leading-snug text-text">{bean.title}</span>
 								{#if bean.priority && bean.priority !== 'normal' && priorityIndicators[bean.priority]}
-									<span class="text-xs shrink-0 {priorityIndicators[bean.priority]}">
+									<span class={["shrink-0 text-xs", priorityIndicators[bean.priority]]}>
 										{bean.priority}
 									</span>
 								{/if}
 							</div>
-							<div class="flex items-center gap-2 mt-1">
+							<div class="mt-1 flex items-center gap-2">
 								<code class="text-[10px] text-text-faint">{bean.id.slice(-4)}</code>
-								<span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium {typeColors[bean.type] ?? 'bg-type-task-bg text-type-task-text'}">
+								<span
+									class={[
+										"rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+										typeColors[bean.type] ?? "bg-type-task-bg text-type-task-text"
+									]}
+								>
 									{bean.type}
 								</span>
 							</div>
@@ -265,9 +290,12 @@
 
 				<!-- Drop indicator at end (always present) -->
 				<div
-					class="h-0.5 rounded-full mx-1 my-1 transition-colors
-						{dropTargetStatus === col.status && draggedBeanId && dropIndex === beans.length
-						? 'bg-accent' : 'bg-transparent'}"
+					class={[
+						"mx-1 my-1 h-0.5 rounded-full transition-colors",
+						dropTargetStatus === col.status && draggedBeanId && dropIndex === beans.length
+							? "bg-accent"
+							: "bg-transparent"
+					]}
 				></div>
 			</div>
 		</div>

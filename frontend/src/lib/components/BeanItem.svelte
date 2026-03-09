@@ -50,25 +50,34 @@
 	<button
 		onclick={handleClick}
 		onkeydown={handleKeydown}
-		class="w-full text-left rounded-lg p-2 border-l-3 transition-all
-			{hasWorktree ? 'border-l-success' : typeBorders[bean.type] ?? 'border-l-type-task-border'}
-			{isSelected ? 'bg-accent/10 ring-1 ring-accent' : 'bg-surface hover:bg-surface-alt'}"
+		class={[
+			"relative overflow-hidden w-full rounded-lg border-l-3 p-2 text-left transition-all",
+			hasWorktree ? "border-l-success" : (typeBorders[bean.type] ?? "border-l-type-task-border"),
+			isSelected ? "bg-accent/10 ring-1 ring-accent" : "bg-surface hover:bg-surface-alt"
+		]}
 	>
-		<div class="flex items-center gap-2 min-w-0">
-			<code class="text-[10px] text-text-faint shrink-0">{bean.id.slice(-4)}</code>
-			<span class="text-sm text-text truncate flex-1">{bean.title}</span>
-			<span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0
-				{statusColors[bean.status] ?? 'bg-status-todo-bg text-status-todo-text'}">
+		{#if hasWorktree}
+			<div class="absolute top-0 right-0 size-4 bg-success" style="clip-path: polygon(0 0, 100% 0, 100% 100%)"></div>
+		{/if}
+		<div class="flex min-w-0 items-center gap-2">
+			<code class="shrink-0 text-[10px] text-text-faint">{bean.id.slice(-4)}</code>
+			<span class="flex-1 truncate text-sm text-text">{bean.title}</span>
+			<span
+				class={[
+					"shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+					statusColors[bean.status] ?? "bg-status-todo-bg text-status-todo-text"
+				]}
+			>
 				{bean.status}
 			</span>
 			{#if children.length > 0}
-				<span class="text-[10px] text-text-faint shrink-0">+{children.length}</span>
+				<span class="shrink-0 text-[10px] text-text-faint">+{children.length}</span>
 			{/if}
 		</div>
 	</button>
 
 	{#if children.length > 0}
-		<div class="ml-4 mt-1 space-y-1 border-l border-border pl-2">
+		<div class="mt-1 ml-4 space-y-1 border-l border-border pl-2">
 			{#each children as child (child.id)}
 				<BeanItem bean={child} depth={depth + 1} {selectedId} {onSelect} />
 			{/each}
