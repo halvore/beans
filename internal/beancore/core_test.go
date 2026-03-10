@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/hmans/beans/internal/bean"
 	"github.com/hmans/beans/internal/config"
 )
@@ -1147,6 +1148,110 @@ status: todo
 	}
 	if b.Title != "Update 5" {
 		t.Errorf("expected title 'Update 5', got %q", b.Title)
+	}
+}
+
+func TestHandleChanges_RemoveAndWriteInSameBatch(t *testing.T) {
+	// Regression test: when a file gets both Remove and Write ops in the same
+	// debounce batch (e.g., some editors do delete+recreate), the Write should
+	// still be processed so the bean is updated in memory.
+	core, beansDir := setupTestCore(t)
+
+	// Create initial bean
+	createTestBean(t, core, "rw1", "Original Title", "todo")
+
+	// Start watching (handleChanges bails early if not watching)
+	if err := core.StartWatching(); err != nil {
+		t.Fatalf("StartWatching() error = %v", err)
+	}
+	defer core.Unwatch()
+
+	// Directly call handleChanges with combined Remove+Write ops
+	// (simulating what happens when both events arrive in one debounce window)
+	newContent := `---
+title: Updated After Remove
+status: in-progress
+---
+`
+	// Write the updated content to disk first (the file must exist for handleChanges)
+	if err := os.WriteFile(filepath.Join(beansDir, "rw1--original-title.md"), []byte(newContent), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	// Simulate a batch where both Remove and Write happened
+	changes := map[string]fsnotify.Op{
+		filepath.Join(beansDir, "rw1--original-title.md"): fsnotify.Remove | fsnotify.Write,
+	}
+	core.handleChanges(changes)
+
+	// Bean should be updated (not deleted!)
+	b, err := core.Get("rw1")
+	if err != nil {
+		t.Fatalf("bean rw1 should still exist after Remove+Write, got error: %v", err)
+	}
+	if b.Title != "Updated After Remove" {
+		t.Errorf("title = %q, want %q", b.Title, "Updated After Remove")
+	}
+	if b.Status != "in-progress" {
+		t.Errorf("status = %q, want %q", b.Status, "in-progress")
+	}
+}
+
+func TestHandleChanges_RemoveOnly(t *testing.T) {
+	// Ensure Remove without Write still correctly deletes the bean
+	core, beansDir := setupTestCore(t)
+
+	b := createTestBean(t, core, "rm1", "To Remove", "todo")
+
+	// Start watching (handleChanges bails early if not watching)
+	if err := core.StartWatching(); err != nil {
+		t.Fatalf("StartWatching() error = %v", err)
+	}
+	defer core.Unwatch()
+
+	// Delete the file from disk
+	if err := os.Remove(filepath.Join(beansDir, b.Path)); err != nil {
+		t.Fatalf("failed to remove test file: %v", err)
+	}
+
+	// Simulate a batch with only Remove
+	changes := map[string]fsnotify.Op{
+		filepath.Join(beansDir, b.Path): fsnotify.Remove,
+	}
+	core.handleChanges(changes)
+
+	// Bean should be gone
+	_, err := core.Get("rm1")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound for rm1 after Remove, got: %v", err)
+	}
+}
+
+func TestFanOut_DropsEventsForSlowSubscriber(t *testing.T) {
+	core, _ := setupTestCore(t)
+
+	// Subscribe but never read from the channel
+	ch, unsub := core.Subscribe()
+	defer unsub()
+
+	// Fill the channel buffer (size 16)
+	for i := 0; i < 20; i++ {
+		core.fanOut([]BeanEvent{{Type: EventUpdated, BeanID: fmt.Sprintf("b%d", i)}})
+	}
+
+	// Should have received exactly buffer-size events
+	count := 0
+	for {
+		select {
+		case <-ch:
+			count++
+		default:
+			goto done
+		}
+	}
+done:
+	if count != 16 {
+		t.Errorf("expected 16 buffered events, got %d", count)
 	}
 }
 

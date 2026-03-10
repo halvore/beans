@@ -95,6 +95,7 @@ func (c *Core) fanOut(events []BeanEvent) {
 			// Sent successfully
 		default:
 			// Subscriber is slow, drop events
+			c.logWarn("subscriber %d: event channel full, dropping %d events", sub.id, len(events))
 		}
 	}
 }
@@ -271,7 +272,6 @@ func (c *Core) handleChanges(changes map[string]fsnotify.Op) {
 
 		// Handle removes/renames (file is gone)
 		if op&fsnotify.Remove != 0 || op&fsnotify.Rename != 0 {
-			// Check if the file actually exists (rename might be followed by create)
 			if _, exists := c.beans[id]; exists {
 				// Only delete if it was in our map and file is actually gone
 				if !c.fileExists(path) {
@@ -289,9 +289,13 @@ func (c *Core) handleChanges(changes map[string]fsnotify.Op) {
 						Bean:   nil,
 						BeanID: id,
 					})
+
+					// File is truly gone, skip Write/Create handling
+					continue
 				}
 			}
-			continue
+			// File still exists (e.g., Remove+Write in same batch), fall through
+			// to Write/Create handler below
 		}
 
 		// Handle creates/writes (file exists or was created)

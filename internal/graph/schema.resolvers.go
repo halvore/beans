@@ -702,8 +702,10 @@ func (r *subscriptionResolver) BeanChanged(ctx context.Context, includeInitial *
 	// Subscribe to bean events from beancore
 	eventCh, unsubscribe := r.Core.Subscribe()
 
-	// Create output channel for GraphQL
-	out := make(chan *model.BeanChangeEvent)
+	// Create buffered output channel for GraphQL to reduce backpressure on the
+	// subscriber channel. Without buffering, the resolver blocks on sends to gqlgen's
+	// WebSocket transport, which prevents draining eventCh and causes fanOut to drop events.
+	out := make(chan *model.BeanChangeEvent, 64)
 
 	// Start goroutine to forward events
 	go func() {
