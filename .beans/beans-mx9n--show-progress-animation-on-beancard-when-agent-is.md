@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-10T15:03:10Z
-updated_at: 2026-03-10T15:11:43Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzzV
 ---
 
 Add a visual indicator (animated glow/pulse) on the BeanCard green corner when the agent is actively working in that bean's worktree. Requires a new global agent status subscription, a frontend store, and animation in BeanCard.

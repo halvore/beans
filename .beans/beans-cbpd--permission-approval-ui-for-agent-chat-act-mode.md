@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-10T10:37:28Z
-updated_at: 2026-03-10T10:46:36Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzz
 ---
 
 Implement PermissionRequest hook-based permission approval in the web UI, enabling a real 'act' mode where Claude Code requests are mediated through HTTP hooks and the user approves/denies in the browser.

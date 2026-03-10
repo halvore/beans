@@ -5,7 +5,8 @@ status: completed
 type: bug
 priority: normal
 created_at: 2026-03-10T11:57:44Z
-updated_at: 2026-03-10T12:02:10Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzs
 ---
 
 Use acceptEdits permission mode and add Bash(beans:*) allowed tool for Act mode. Add logging for permission denials.

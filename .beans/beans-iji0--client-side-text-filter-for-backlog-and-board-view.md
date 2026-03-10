@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-10T09:03:09Z
-updated_at: 2026-03-10T09:29:19Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzs
 ---
 
 Add a text input at the top of both the backlog and board panes that filters the visible beans client-side as the user types.

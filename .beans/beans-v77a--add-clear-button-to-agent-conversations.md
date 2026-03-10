@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-10T08:15:02Z
-updated_at: 2026-03-10T08:26:51Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzV
 ---
 
 Add a Clear button next to the plan/act/yolo mode switcher in agent conversations. It should clear the conversation history (messages, session state, and persisted JSONL). Needs backend ClearSession method + GraphQL mutation + frontend button.

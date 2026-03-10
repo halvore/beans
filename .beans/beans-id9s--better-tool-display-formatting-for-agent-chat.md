@@ -5,7 +5,8 @@ status: completed
 type: task
 priority: normal
 created_at: 2026-03-10T15:15:44Z
-updated_at: 2026-03-10T15:26:28Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzzs
 ---
 
 Add proper formatting for ToolSearch, EnterWorktree, ExitWorktree, Agent, Skill, WebSearch, WebFetch in formatToolInput(). Improve default fallback.

@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-10T12:03:01Z
-updated_at: 2026-03-10T12:32:41Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzw
 ---
 
 Currently, agent chat sessions start in **act mode** (`--permission-mode acceptEdits`) by default, requiring explicit user opt-in to switch to yolo mode (`--dangerously-skip-permissions`). This feature would make yolo mode the default, so new agent sessions run fully autonomously without requiring the user to toggle it on each time.

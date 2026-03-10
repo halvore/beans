@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-10T12:14:45Z
-updated_at: 2026-03-10T12:16:18Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzy
 ---
 
 Automatically inject bean context (title, type, status, body) into the Claude Code process stdin before the first user message, so the agent knows what it's working on without the user having to explain. Only on first spawn (not resume), skip for __central__ sessions.

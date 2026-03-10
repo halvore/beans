@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-10T09:17:26Z
-updated_at: 2026-03-10T09:19:15Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzzk
 ---
 
 When beans CLI runs in a secondary git worktree, auto-detect and redirect .beans/ path to the main worktree's .beans/ directory. This ensures agents in worktrees can see uncommitted beans from the main repo.

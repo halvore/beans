@@ -3,8 +3,10 @@
 title: Add Compact button and system status display to agent chat
 status: completed
 type: feature
+priority: normal
 created_at: 2026-03-10T08:48:48Z
-updated_at: 2026-03-10T08:48:48Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzzk
 ---
 
 Added Compact button (sends /compact to Claude Code), system status display (shows 'compacting...' instead of 'thinking...'), frontend debug logging of agent messages, and grouped Compact/Clear button styling.

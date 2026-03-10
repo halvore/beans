@@ -5,7 +5,8 @@ status: completed
 type: bug
 priority: normal
 created_at: 2026-03-10T11:34:53Z
-updated_at: 2026-03-10T11:44:20Z
+updated_at: 2026-03-10T15:44:18Z
+order: zzzw
 ---
 
 When an agent (external CLI process) creates a bean and makes multiple updates, the web UI only shows the first version. Three fixes needed: (1) Fix continue bug in handleChanges that skips Write events after Remove/Rename, (2) Add logging when fanOut drops events, (3) Buffer the GraphQL subscription output channel to reduce backpressure.
