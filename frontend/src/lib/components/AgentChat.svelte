@@ -109,8 +109,28 @@
 					return input.pattern ? `/${input.pattern}/ ${input.path ?? ''}`.trim() : '';
 				case 'Glob':
 					return input.pattern ?? '';
-				default:
-					return JSON.stringify(input, null, 2);
+				case 'ToolSearch':
+				case 'WebSearch':
+					return input.query ?? '';
+				case 'WebFetch':
+					return input.url ?? '';
+				case 'Agent':
+					return input.description ?? '';
+				case 'Skill':
+					return input.args ? `${input.skill} ${input.args}` : (input.skill ?? '');
+				case 'EnterWorktree':
+					return input.description ?? '';
+				case 'ExitWorktree':
+					return '';
+				default: {
+					const summaryFields = ['description', 'file_path', 'pattern', 'command', 'query', 'skill', 'prompt'];
+					for (const field of summaryFields) {
+						if (input[field] && typeof input[field] === 'string') {
+							return input[field];
+						}
+					}
+					return '';
+				}
 			}
 		} catch {
 			return toolInput;
