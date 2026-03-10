@@ -1,11 +1,11 @@
 ---
 # beans-6piw
 title: Validate localStorage values in frontend
-status: in-progress
+status: completed
 type: task
 priority: low
 created_at: 2026-03-09T17:02:04Z
-updated_at: 2026-03-10T19:39:12Z
+updated_at: 2026-03-10T21:20:32Z
 order: V
 parent: beans-oe8n
 ---
