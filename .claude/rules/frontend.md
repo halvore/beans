@@ -27,6 +27,7 @@ globs: ["frontend/**"]
 - Use **Tailwind CSS v4** utility classes. **Never write raw CSS properties** — always use Tailwind utilities, either inline or via `@apply` in custom classes.
 - Define custom utility classes with `@apply` in `layout.css` when styling dynamically rendered HTML (e.g. markdown output) or when a pattern repeats across components.
 - When writing `@apply` classes or `<style>` blocks, compose exclusively from Tailwind utilities — no raw CSS properties.
+- **Theme colors must use Tailwind palette references.** In `layout.css`, define theme CSS variables using `var(--color-<palette>-<shade>)` (e.g. `var(--color-gray-500)`, `var(--color-zinc-800)`). Never use hardcoded hex values — always reference Tailwind's built-in color variables.
 - **All** interactive elements (`<button>`, `<a>`, clickable `<div>`s, etc.) must have `cursor-pointer`.
 - **Always use Svelte 5's array-based `class` syntax** for conditional classes instead of string interpolation. Falsy values are automatically filtered out:
   ```svelte
