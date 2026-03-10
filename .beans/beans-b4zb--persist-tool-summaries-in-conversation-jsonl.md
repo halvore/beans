@@ -5,7 +5,8 @@ status: completed
 type: bug
 priority: normal
 created_at: 2026-03-09T21:07:01Z
-updated_at: 2026-03-09T21:09:11Z
+updated_at: 2026-03-10T08:08:34Z
+order: zzzV
 ---
 
 Tool messages are persisted to JSONL immediately with just the tool name (e.g. 'Bash'), before the summary is extracted from tool input deltas. After server restart, the agent chat shows bare tool names instead of rich descriptions like 'Bash: Build beans binary'. Fix by deferring tool message persistence until the summary is available.
