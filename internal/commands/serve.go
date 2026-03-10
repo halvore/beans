@@ -72,8 +72,8 @@ func runServer(port int) error {
 		c.Next()
 	})
 
-	// Create worktree manager (uses config dir as repo root)
-	wtManager := worktree.NewManager(cfg.ConfigDir())
+	// Create worktree manager (worktrees stored inside .beans/worktrees/)
+	wtManager := worktree.NewManager(cfg.ConfigDir(), core.Root())
 
 	// Create agent session manager (with conversation persistence)
 	agentMgr := agent.NewManager(core.Root())

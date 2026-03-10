@@ -24,6 +24,7 @@ type Worktree struct {
 // Manager handles git worktree operations for a repository.
 type Manager struct {
 	repoRoot string
+	beansDir string
 	mu       sync.RWMutex
 
 	// subscribers for worktree change events
@@ -32,8 +33,9 @@ type Manager struct {
 }
 
 // NewManager creates a new worktree manager for the given repository root.
-func NewManager(repoRoot string) *Manager {
-	return &Manager{repoRoot: repoRoot}
+// beansDir is the path to the .beans directory where worktrees are stored.
+func NewManager(repoRoot, beansDir string) *Manager {
+	return &Manager{repoRoot: repoRoot, beansDir: beansDir}
 }
 
 // Subscribe returns a channel that receives a signal whenever worktrees change.
@@ -258,7 +260,7 @@ func (m *Manager) findWorktreePath(beanID string) (string, error) {
 }
 
 // worktreePath returns the path for a worktree associated with a bean.
+// Worktrees are stored inside the .beans/worktrees/ directory.
 func (m *Manager) worktreePath(beanID string) string {
-	dirName := filepath.Base(m.repoRoot)
-	return filepath.Join(filepath.Dir(m.repoRoot), dirName+"-"+beanID)
+	return filepath.Join(m.beansDir, "worktrees", beanID)
 }

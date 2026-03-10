@@ -7,8 +7,9 @@ import (
 	"testing"
 )
 
-// initTestRepo creates a temporary git repo with an initial commit.
-func initTestRepo(t *testing.T) string {
+// initTestRepo creates a temporary git repo with an initial commit
+// and a .beans directory inside it.
+func initTestRepo(t *testing.T) (repoDir, beansDir string) {
 	t.Helper()
 	dir := t.TempDir()
 
@@ -27,7 +28,12 @@ func initTestRepo(t *testing.T) string {
 		}
 	}
 
-	return dir
+	bd := filepath.Join(dir, ".beans")
+	if err := os.MkdirAll(bd, 0755); err != nil {
+		t.Fatalf("MkdirAll .beans: %v", err)
+	}
+
+	return dir, bd
 }
 
 func TestParsePorcelain(t *testing.T) {
@@ -132,8 +138,8 @@ branch refs/heads/beans/beans-good
 }
 
 func TestCreateAndList(t *testing.T) {
-	repoDir := initTestRepo(t)
-	mgr := NewManager(repoDir)
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir)
 
 	// List should be empty initially
 	wts, err := mgr.List()
@@ -157,7 +163,7 @@ func TestCreateAndList(t *testing.T) {
 		t.Errorf("Branch = %q, want %q", wt.Branch, "beans/beans-test1")
 	}
 
-	expectedPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"-beans-test1")
+	expectedPath := filepath.Join(beansDir, "worktrees", "beans-test1")
 	if wt.Path != expectedPath {
 		t.Errorf("Path = %q, want %q", wt.Path, expectedPath)
 	}
@@ -181,8 +187,8 @@ func TestCreateAndList(t *testing.T) {
 }
 
 func TestCreateDuplicate(t *testing.T) {
-	repoDir := initTestRepo(t)
-	mgr := NewManager(repoDir)
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir)
 
 	_, err := mgr.Create("beans-dup")
 	if err != nil {
@@ -196,8 +202,8 @@ func TestCreateDuplicate(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	repoDir := initTestRepo(t)
-	mgr := NewManager(repoDir)
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir)
 
 	wt, err := mgr.Create("beans-rm")
 	if err != nil {
@@ -224,8 +230,8 @@ func TestRemove(t *testing.T) {
 }
 
 func TestRemoveStaleWorktree(t *testing.T) {
-	repoDir := initTestRepo(t)
-	mgr := NewManager(repoDir)
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir)
 
 	// Create a worktree, then delete its directory out from under git
 	wt, err := mgr.Create("beans-stale")
@@ -252,8 +258,8 @@ func TestRemoveStaleWorktree(t *testing.T) {
 }
 
 func TestCreateReusesExistingBranch(t *testing.T) {
-	repoDir := initTestRepo(t)
-	mgr := NewManager(repoDir)
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir)
 
 	// Create and then remove a worktree, leaving the branch behind
 	_, err := mgr.Create("beans-reuse")
@@ -278,8 +284,8 @@ func TestCreateReusesExistingBranch(t *testing.T) {
 }
 
 func TestSubscription(t *testing.T) {
-	repoDir := initTestRepo(t)
-	mgr := NewManager(repoDir)
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir)
 
 	ch := mgr.Subscribe()
 	defer mgr.Unsubscribe(ch)
