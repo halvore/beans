@@ -1,11 +1,11 @@
 ---
 # beans-iji0
 title: Client-side text filter for backlog and board views
-status: todo
+status: completed
 type: feature
 priority: normal
 created_at: 2026-03-10T09:03:09Z
-updated_at: 2026-03-10T09:04:15Z
+updated_at: 2026-03-10T09:29:19Z
 ---
 
 Add a text input at the top of both the backlog and board panes that filters the visible beans client-side as the user types.
@@ -22,10 +22,23 @@ Add a text input at the top of both the backlog and board panes that filters the
 
 ## Tasks
 
-- [ ] Add `filterText` state to `uiState.svelte.ts`
-- [ ] Create a `FilterInput.svelte` component (text input with clear button)
-- [ ] Implement `matchesFilter(bean, text)` utility function
-- [ ] Integrate filter into backlog view in `+page.svelte` (filter `topLevelBeans` with recursive child matching)
-- [ ] Integrate filter into `BoardView.svelte` (filter `beansForStatus`)
-- [ ] Add Cmd/Ctrl+F keyboard shortcut to focus filter
-- [ ] Write e2e tests for filtering in both views
+- [x] Add `filterText` state to `uiState.svelte.ts`
+- [x] Create a `FilterInput.svelte` component (text input with clear button)
+- [x] Implement `matchesFilter(bean, text)` utility function
+- [x] Integrate filter into backlog view in `+page.svelte` (filter `topLevelBeans` with recursive child matching)
+- [x] Integrate filter into `BoardView.svelte` (filter `beansForStatus`)
+- [x] Add Cmd/Ctrl+F keyboard shortcut to focus filter
+- [x] Write e2e tests for filtering in both views
+
+## Summary of Changes
+
+Implemented client-side text filtering for backlog and board views:
+
+- Added `filterText` reactive state to `UIState` with localStorage persistence
+- Created `FilterInput.svelte` component with clear button (×)
+- Created `matchesFilter()` utility: case-insensitive substring match against title, type, status, tags, and ID
+- Backlog view: parent beans shown when they or any child matches; non-matching children hidden
+- Board view: each column filtered individually
+- Cmd/Ctrl+F keyboard shortcut focuses the filter input
+- Filter state shared between backlog and board views
+- 8 e2e tests covering all scenarios

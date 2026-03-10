@@ -1,8 +1,16 @@
+# Beans configuration
+# See: https://github.com/hmans/beans
 beans:
+    # Directory where bean files are stored
     path: .beans
+    # Prefix for bean IDs (e.g., "myproject-abc1")
     prefix: beans-
+    # Length of the random ID suffix
     id_length: 4
+    # Default status for new beans
     default_status: todo
+    # Default type for new beans
     default_type: task
 server:
+    # Port for the web UI (used by `beans serve`)
     port: 8080
