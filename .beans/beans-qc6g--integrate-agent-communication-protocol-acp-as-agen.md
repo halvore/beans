@@ -50,29 +50,69 @@ ACP (https://agentcommunicationprotocol.dev/) is an open protocol (v0.2.0, Apach
 | SSE streaming | GraphQL subscriptions (pub/sub channels) |
 | Agent manifest | Could describe Claude Code capabilities per-worktree |
 
-## Potential Scope
+## Approach: beans as ACP Client
 
-### Phase 1: ACP Server (beans-serve exposes ACP endpoints)
-- Mount ACP REST endpoints on beans-serve alongside GraphQL
-- Translate between ACP runs/messages and internal agent sessions
-- Map ACP await/resume to beans' permission and plan-mode interactions
-- SSE streaming for real-time agent output
-- Agent discovery endpoint listing available bean-scoped agents
+The primary goal is to make beans-serve an **ACP client**, replacing the current tight coupling to Claude Code CLI process management with standardized HTTP REST + SSE communication.
 
-### Phase 2: ACP Client (beans consumes external ACP agents)
-- Allow beans to delegate to agents hosted on external ACP servers
-- Agent type selection (not just Claude Code) per bean/worktree
-- External agent discovery and registration
+### Current Architecture
+```
+Frontend -> GraphQL -> agent.Manager -> spawns claude CLI -> parses stream-json
+```
+
+### Target Architecture
+```
+Frontend -> GraphQL -> agent.Manager -> ACP Client (HTTP/SSE) -> ACP Server(s)
+                                                                  |-- claude-agent-acp
+                                                                  |-- Other ACP agents
+```
+
+## Existing ACP Servers (no need to build our own)
+
+- **@zed-industries/claude-agent-acp** (1128 stars) - Official Zed-maintained ACP server wrapping the Claude Agent SDK. Supports tool calls with permission requests, streaming, sessions, images, slash commands, MCP servers. Available as `npx @zed-industries/claude-agent-acp` or pre-built binaries. https://github.com/zed-industries/claude-code-acp
+- **Python ACP SDK** (`acp_sdk`) - Server framework with examples for OpenAI, LangGraph, LlamaIndex, CrewAI. https://github.com/i-am-bee/acp
+- **ACP-MCP Adapter** - Bridges ACP agents into MCP-compatible clients. https://github.com/i-am-bee/acp-mcp
+
+## Scope
+
+### Phase 1: ACP Client in beans-serve
+- [ ] Implement ACP client (HTTP REST + SSE) in Go (`internal/acp/`)
+- [ ] Refactor `agent.Manager` to use ACP client instead of direct process spawning
+- [ ] Map ACP run lifecycle to beans session model (`POST /runs` -> streaming -> `run.completed`)
+- [ ] Map ACP `await`/`resume` to beans pending interactions (permissions, ask-user)
+- [ ] Map ACP SSE events to GraphQL subscription updates
+- [ ] Configuration for ACP server URL(s) in beans config
+
+### Phase 2: Multi-Agent Support
+- [ ] Agent discovery via `GET /agents` - UI for selecting which agent to assign per bean/worktree
+- [ ] Support multiple ACP servers (different agents on different servers)
+- [ ] Agent manifest display in UI (capabilities, description, status)
+
+### Phase 3: Remove Direct Claude Code Integration
+- [ ] Deprecate and remove `internal/agent/claude.go` and `internal/agent/parse.go`
+- [ ] Document how to run `claude-agent-acp` alongside beans-serve
+
+## Detailed ACP-to-beans Mapping
+
+| ACP Concept | beans Equivalent | Notes |
+|---|---|---|
+| `POST /runs` (mode: stream) | `SendMessage()` | Creates a run per message turn |
+| SSE `message.part` | Streaming text deltas | Maps to GraphQL subscription updates |
+| SSE `run.awaiting` | `PendingInteraction` | Permission requests, ask-user |
+| `POST /runs/{id}` (resume) | `ResolvePermission()` | Send `await_resume` payload |
+| `POST /runs/{id}/cancel` | `StopSession()` | Cancel running agent |
+| `session_id` | Session persistence | Maps to --resume / JSONL persistence |
+| Agent manifest | Agent metadata | Name, capabilities, content types |
+| Trajectory metadata | Tool invocations | Tool name, input, output tracking |
 
 ## Open Questions
-- Should ACP endpoints replace or coexist with the GraphQL agent API?
-- How to map bean IDs to ACP agent names (RFC 1123 DNS label format)?
-- Should each bean worktree be a separate "agent", or should there be one agent with sessions per bean?
-- How to expose tool invocations via ACP's trajectory metadata?
-- Authentication/authorization for the ACP endpoints?
+- How should beans manage the lifecycle of ACP servers? Spawn as sidecar vs. expect user to run separately?
+- How to map beans-specific features (plan mode, yolo mode, allowed-tools) to ACP await/resume payloads?
+- Should the ACP server URL be per-project, per-bean, or global?
+- How does agent authentication work when beans talks to remote ACP servers?
 
 ## References
-- Protocol spec: https://agentcommunicationprotocol.dev/
-- OpenAPI spec: https://github.com/i-am-bee/acp/blob/main/docs/spec/openapi.yaml
-- GitHub: https://github.com/i-am-bee/acp
-- Python and TypeScript SDKs available
+- ACP Protocol spec: https://agentcommunicationprotocol.dev/
+- ACP OpenAPI spec: https://github.com/i-am-bee/acp/blob/main/docs/spec/openapi.yaml
+- ACP GitHub: https://github.com/i-am-bee/acp
+- Claude Agent ACP (Zed): https://github.com/zed-industries/claude-code-acp
+- ACP-MCP Adapter: https://github.com/i-am-bee/acp-mcp
