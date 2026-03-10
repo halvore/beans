@@ -10,6 +10,7 @@
   import AgentChat from '$lib/components/AgentChat.svelte';
   import ChangesPane from '$lib/components/ChangesPane.svelte';
   import FilterInput from '$lib/components/FilterInput.svelte';
+  import PaneHeader from '$lib/components/PaneHeader.svelte';
 
   const CENTRAL_SESSION_ID = '__central__';
 
@@ -46,54 +47,109 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<SplitPane
-  direction="horizontal"
-  side="end"
-  persistKey="right-panel-width"
-  initialSize={ui.showChanges && ui.showPlanningChat ? 720 : 420}
-  collapsed={!ui.showChanges && !ui.showPlanningChat}
->
-  {#snippet aside()}
-    {#if ui.showChanges && ui.showPlanningChat}
-      <SplitPane direction="horizontal" side="end" persistKey="changes-chat-split" initialSize={420}>
-        {#snippet children()}
-          <ChangesPane />
-        {/snippet}
-        {#snippet aside()}
+<div class="flex h-full flex-col">
+  <div class="toolbar bg-surface-alt">
+    <button class="btn-primary" onclick={() => ui.openCreateForm()}>+ New Bean</button>
+
+    <div class="ml-3 flex">
+      <button
+        onclick={() => ui.setPlanningView('backlog')}
+        class={[
+          'btn-tab rounded-l-md',
+          ui.planningView === 'backlog' ? 'btn-tab-active' : 'btn-tab-inactive'
+        ]}
+      >
+        Backlog
+      </button>
+      <button
+        onclick={() => ui.setPlanningView('board')}
+        class={[
+          'btn-tab rounded-r-md border-l-0',
+          ui.planningView === 'board' ? 'btn-tab-active' : 'btn-tab-inactive'
+        ]}
+      >
+        Board
+      </button>
+    </div>
+    <div class="mx-3 w-60">
+      <FilterInput bind:this={filterInput} />
+    </div>
+    <div class="flex-1"></div>
+    <button
+      onclick={() => ui.toggleChanges()}
+      class={['btn-toggle ml-3', ui.showChanges ? 'btn-toggle-active' : 'btn-toggle-inactive']}
+      title={ui.showChanges ? 'Hide changes' : 'Show changes'}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        class="h-4 w-4"
+      >
+        <path
+          d="M18 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-3v3h-2v-3H9V9h3V6h2v3h3v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm12 9H10v-2h6v2z"
+        />
+      </svg>
+      Changes
+    </button>
+    <button
+      onclick={() => ui.togglePlanningChat()}
+      class={['btn-toggle ml-1', ui.showPlanningChat ? 'btn-toggle-active' : 'btn-toggle-inactive']}
+      title={ui.showPlanningChat ? 'Hide chat' : 'Show chat'}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        class="h-4 w-4"
+      >
+        <path
+          fill-rule="evenodd"
+          d="M10 3c-4.31 0-8 3.033-8 7 0 2.024.978 3.825 2.499 5.085a3.478 3.478 0 01-.522 1.756.75.75 0 00.584 1.143 5.976 5.976 0 003.936-1.108c.487.082.99.124 1.503.124 4.31 0 8-3.033 8-7s-3.69-7-8-7z"
+          clip-rule="evenodd"
+        />
+      </svg>
+      Agent
+    </button>
+  </div>
+
+  <div class="flex min-h-0 flex-1 overflow-hidden">
+    <SplitPane
+      direction="horizontal"
+      side="end"
+      persistKey="right-panel-width"
+      initialSize={ui.showChanges && ui.showPlanningChat ? 720 : 420}
+      collapsed={!ui.showChanges && !ui.showPlanningChat}
+    >
+      {#snippet aside()}
+        {#if ui.showChanges && ui.showPlanningChat}
+          <SplitPane direction="horizontal" side="end" persistKey="changes-chat-split" initialSize={420}>
+            {#snippet children()}
+              <ChangesPane />
+            {/snippet}
+            {#snippet aside()}
+              <div class="flex h-full flex-col border-l border-border bg-surface">
+                <PaneHeader title="Agent" onClose={() => ui.togglePlanningChat()} />
+                <div class="min-h-0 flex-1">
+                  <AgentChat beanId={CENTRAL_SESSION_ID} />
+                </div>
+              </div>
+            {/snippet}
+          </SplitPane>
+        {:else if ui.showPlanningChat}
           <div class="flex h-full flex-col border-l border-border bg-surface">
-            <div class="toolbar">
-              <span class="text-sm font-medium text-text">Agent</span>
-              <div class="flex-1"></div>
-              <button onclick={() => ui.togglePlanningChat()} class="btn-icon" title="Close chat">
-                &#x2715;
-              </button>
-            </div>
+            <PaneHeader title="Agent" onClose={() => ui.togglePlanningChat()} />
             <div class="min-h-0 flex-1">
               <AgentChat beanId={CENTRAL_SESSION_ID} />
             </div>
           </div>
-        {/snippet}
-      </SplitPane>
-    {:else if ui.showPlanningChat}
-      <div class="flex h-full flex-col border-l border-border bg-surface">
-        <div class="toolbar">
-          <span class="text-sm font-medium text-text">Agent</span>
-          <div class="flex-1"></div>
-          <button onclick={() => ui.togglePlanningChat()} class="btn-icon" title="Close chat">
-            &#x2715;
-          </button>
-        </div>
-        <div class="min-h-0 flex-1">
-          <AgentChat beanId={CENTRAL_SESSION_ID} />
-        </div>
-      </div>
-    {:else if ui.showChanges}
-      <ChangesPane />
-    {/if}
-  {/snippet}
+        {:else if ui.showChanges}
+          <ChangesPane />
+        {/if}
+      {/snippet}
 
-  {#snippet children()}
-    <SplitPane
+      {#snippet children()}
+        <SplitPane
           direction="horizontal"
           side="end"
           persistKey="detail-width"
@@ -101,84 +157,12 @@
           collapsed={!ui.currentBean}
         >
           {#snippet children()}
-            <div class="flex h-full flex-col">
-              <div class="toolbar bg-surface">
-                <button class="btn-primary" onclick={() => ui.openCreateForm()}>+ New Bean</button>
-
-                <div class="ml-3 flex">
-                  <button
-                    onclick={() => ui.setPlanningView('backlog')}
-                    class={[
-                      'btn-tab rounded-l-md',
-                      ui.planningView === 'backlog' ? 'btn-tab-active' : 'btn-tab-inactive'
-                    ]}
-                  >
-                    Backlog
-                  </button>
-                  <button
-                    onclick={() => ui.setPlanningView('board')}
-                    class={[
-                      'btn-tab rounded-r-md border-l-0',
-                      ui.planningView === 'board' ? 'btn-tab-active' : 'btn-tab-inactive'
-                    ]}
-                  >
-                    Board
-                  </button>
-                </div>
-                <div class="mx-3 w-60">
-                  <FilterInput bind:this={filterInput} />
-                </div>
-                <div class="flex-1"></div>
-                <button
-                  onclick={() => ui.toggleChanges()}
-                  class={[
-                    'ml-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded transition-colors',
-                    ui.showChanges
-                      ? 'bg-accent text-accent-text'
-                      : 'border border-border bg-surface text-text-muted hover:bg-surface-alt'
-                  ]}
-                  title={ui.showChanges ? 'Hide changes' : 'Show changes'}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    class="h-4 w-4"
-                  >
-                    <path
-                      d="M18 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-3v3h-2v-3H9V9h3V6h2v3h3v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm12 9H10v-2h6v2z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  onclick={() => ui.togglePlanningChat()}
-                  class={[
-                    'ml-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded transition-colors',
-                    ui.showPlanningChat
-                      ? 'bg-accent text-accent-text'
-                      : 'border border-border bg-surface text-text-muted hover:bg-surface-alt'
-                  ]}
-                  title={ui.showPlanningChat ? 'Hide chat' : 'Show chat'}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    class="h-4 w-4"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M10 3c-4.31 0-8 3.033-8 7 0 2.024.978 3.825 2.499 5.085a3.478 3.478 0 01-.522 1.756.75.75 0 00.584 1.143 5.976 5.976 0 003.936-1.108c.487.082.99.124 1.503.124 4.31 0 8-3.033 8-7s-3.69-7-8-7z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                </button>
-              </div>
-
+            <div class="flex h-full flex-col bg-surface">
+              <PaneHeader title={ui.planningView === 'backlog' ? 'Backlog' : 'Board'} />
               {#if ui.planningView === 'backlog'}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="flex-1 overflow-auto bg-surface" onclick={handlePlanningClick}>
+                <div class="min-h-0 flex-1 overflow-auto bg-surface" onclick={handlePlanningClick}>
                   <div
                     class="p-3"
                     ondragover={(e) => backlogDrag.hoverList(e, null, filteredTopLevelBeans.length)}
@@ -232,6 +216,7 @@
             {/if}
           {/snippet}
         </SplitPane>
-  {/snippet}
-</SplitPane>
-
+      {/snippet}
+    </SplitPane>
+  </div>
+</div>

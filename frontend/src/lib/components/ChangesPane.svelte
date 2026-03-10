@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { changesStore } from '$lib/changes.svelte';
   import { ui } from '$lib/uiState.svelte';
+  import PaneHeader from '$lib/components/PaneHeader.svelte';
 
   interface Props {
     path?: string;
@@ -64,16 +65,13 @@
 </script>
 
 <div class="flex h-full flex-col border-l border-border bg-surface">
-  <div class="toolbar">
-    <span class="text-sm font-medium text-text">Changes</span>
-    {#if totalCount > 0}
-      <span class="ml-1 text-sm text-text-muted">({totalCount})</span>
-    {/if}
-    <div class="flex-1"></div>
-    <button onclick={() => ui.toggleChanges()} class="btn-icon" title="Close changes">
-      &#x2715;
-    </button>
-  </div>
+  <PaneHeader title="Changes" onClose={() => ui.toggleChanges()}>
+    {#snippet extra()}
+      {#if totalCount > 0}
+        <span class="ml-1 text-sm text-text-muted">({totalCount})</span>
+      {/if}
+    {/snippet}
+  </PaneHeader>
 
   <div class="flex-1 overflow-auto">
     {#if totalCount === 0}

@@ -6,6 +6,7 @@
   import AgentChat from './AgentChat.svelte';
   import BeanPane from './BeanPane.svelte';
   import ChangesPane from './ChangesPane.svelte';
+  import PaneHeader from './PaneHeader.svelte';
 
   interface Props {
     bean: Bean;
@@ -19,31 +20,26 @@
 </script>
 
 {#snippet agentToolbar()}
-  <div class="toolbar">
-    <span class="text-sm font-medium text-text">Agent</span>
-    <div class="flex-1"></div>
-    <button
-      onclick={() => ui.toggleChanges()}
-      class={[
-        'flex h-8 w-8 cursor-pointer items-center justify-center rounded transition-colors',
-        ui.showChanges
-          ? 'bg-accent text-accent-text'
-          : 'border border-border bg-surface text-text-muted hover:bg-surface-alt'
-      ]}
-      title={ui.showChanges ? 'Hide changes' : 'Show changes'}
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        class="h-4 w-4"
+  <PaneHeader title="Agent">
+    {#snippet actions()}
+      <button
+        onclick={() => ui.toggleChanges()}
+        class={['btn-toggle-icon', ui.showChanges ? 'btn-toggle-active' : 'btn-toggle-inactive']}
+        title={ui.showChanges ? 'Hide changes' : 'Show changes'}
       >
-        <path
-          d="M18 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-3v3h-2v-3H9V9h3V6h2v3h3v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm12 9H10v-2h6v2z"
-        />
-      </svg>
-    </button>
-  </div>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          class="h-4 w-4"
+        >
+          <path
+            d="M18 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-3v3h-2v-3H9V9h3V6h2v3h3v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm12 9H10v-2h6v2z"
+          />
+        </svg>
+      </button>
+    {/snippet}
+  </PaneHeader>
 {/snippet}
 
 <SplitPane direction="horizontal" side="end" persistKey="workspace-chat-width" initialSize={480}>
