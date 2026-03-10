@@ -44,8 +44,9 @@ func (e *ETagRequiredError) Error() string {
 
 // Core provides thread-safe in-memory storage for beans with filesystem persistence.
 type Core struct {
-	root   string         // absolute path to .beans directory
-	config *config.Config // project configuration
+	root       string         // absolute path to .beans directory
+	mirrorRoot string         // optional: mirror writes to this second .beans/ path (for worktrees)
+	config     *config.Config // project configuration
 
 	// In-memory state
 	mu    sync.RWMutex
@@ -83,6 +84,30 @@ func New(root string, cfg *config.Config) *Core {
 // Pass nil to disable warnings.
 func (c *Core) SetWarnWriter(w io.Writer) {
 	c.warnWriter = w
+}
+
+// SetMirrorRoot sets an optional mirror path. When set, all mutations that
+// succeed on the primary root are also applied (best-effort) to this path.
+// This is used in git worktrees so bean changes can be committed on the
+// worktree's branch while the primary data lives in the main repo.
+func (c *Core) SetMirrorRoot(path string) {
+	c.mirrorRoot = path
+}
+
+// MirrorRoot returns the mirror path, or empty string if not set.
+func (c *Core) MirrorRoot() string {
+	return c.mirrorRoot
+}
+
+// mirrorOp performs a filesystem operation on the mirror root (best-effort).
+// If mirrorRoot is not set, this is a no-op. Failures are logged as warnings.
+func (c *Core) mirrorOp(op func(root string) error) {
+	if c.mirrorRoot == "" {
+		return
+	}
+	if err := op(c.mirrorRoot); err != nil {
+		c.logWarn("mirror write to %s failed: %v", c.mirrorRoot, err)
+	}
 }
 
 // logWarn logs a warning message if a warn writer is configured.
@@ -468,6 +493,15 @@ func (c *Core) saveToDisk(b *bean.Bean) error {
 		return fmt.Errorf("writing file: %w", err)
 	}
 
+	// Mirror the write
+	c.mirrorOp(func(root string) error {
+		mirrorPath := filepath.Join(root, b.Path)
+		if err := os.MkdirAll(filepath.Dir(mirrorPath), 0755); err != nil {
+			return err
+		}
+		return os.WriteFile(mirrorPath, content, 0644)
+	})
+
 	return nil
 }
 
@@ -500,6 +534,12 @@ func (c *Core) Delete(id string) error {
 	if err := os.Remove(path); err != nil {
 		return err
 	}
+
+	// Mirror the delete
+	mirrorRelPath := targetBean.Path
+	c.mirrorOp(func(root string) error {
+		return os.Remove(filepath.Join(root, mirrorRelPath))
+	})
 
 	// Remove from in-memory map
 	delete(c.beans, targetID)
@@ -549,6 +589,15 @@ func (c *Core) Archive(id string) error {
 		return fmt.Errorf("moving bean to archive: %w", err)
 	}
 
+	// Mirror the archive move
+	oldRelPath := targetBean.Path
+	c.mirrorOp(func(root string) error {
+		if err := os.MkdirAll(filepath.Join(root, ArchiveDir), 0755); err != nil {
+			return err
+		}
+		return os.Rename(filepath.Join(root, oldRelPath), filepath.Join(root, newRelPath))
+	})
+
 	// Update bean's path in store and notify subscribers
 	targetBean.Path = newRelPath
 	c.beans[targetID] = targetBean
@@ -588,6 +637,12 @@ func (c *Core) Unarchive(id string) error {
 	if err := os.Rename(oldPath, newPath); err != nil {
 		return fmt.Errorf("moving bean from archive: %w", err)
 	}
+
+	// Mirror the unarchive move
+	oldRelPath := targetBean.Path
+	c.mirrorOp(func(root string) error {
+		return os.Rename(filepath.Join(root, oldRelPath), filepath.Join(root, newRelPath))
+	})
 
 	// Update bean's path
 	targetBean.Path = newRelPath
@@ -702,6 +757,12 @@ func (c *Core) LoadAndUnarchive(id string) (*bean.Bean, error) {
 		return nil, fmt.Errorf("moving bean from archive: %w", err)
 	}
 
+	// Mirror the unarchive move
+	oldRelPath := b.Path
+	c.mirrorOp(func(root string) error {
+		return os.Rename(filepath.Join(root, oldRelPath), filepath.Join(root, newRelPath))
+	})
+
 	// Update bean's path
 	b.Path = newRelPath
 	c.beans[targetID] = b
@@ -715,7 +776,19 @@ func (c *Core) Init() error {
 	if err := os.MkdirAll(c.root, 0755); err != nil {
 		return err
 	}
-	return writeGitignore(c.root)
+	if err := writeGitignore(c.root); err != nil {
+		return err
+	}
+
+	// Mirror the init
+	c.mirrorOp(func(root string) error {
+		if err := os.MkdirAll(root, 0755); err != nil {
+			return err
+		}
+		return writeGitignore(root)
+	})
+
+	return nil
 }
 
 // FullPath returns the absolute path to a bean file.

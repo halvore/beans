@@ -1841,6 +1841,238 @@ func TestUpdateWithETagRequired(t *testing.T) {
 		}
 	})
 }
+func setupTestCoreWithMirror(t *testing.T) (*Core, string, string) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	primaryDir := filepath.Join(tmpDir, "primary", BeansDir)
+	mirrorDir := filepath.Join(tmpDir, "mirror", BeansDir)
+	if err := os.MkdirAll(primaryDir, 0755); err != nil {
+		t.Fatalf("failed to create primary .beans dir: %v", err)
+	}
+	if err := os.MkdirAll(mirrorDir, 0755); err != nil {
+		t.Fatalf("failed to create mirror .beans dir: %v", err)
+	}
+
+	cfg := config.Default()
+	core := New(primaryDir, cfg)
+	core.SetMirrorRoot(mirrorDir)
+	core.SetWarnWriter(nil)
+	if err := core.Load(); err != nil {
+		t.Fatalf("failed to load core: %v", err)
+	}
+
+	return core, primaryDir, mirrorDir
+}
+
+func TestMirrorCreate(t *testing.T) {
+	core, primaryDir, mirrorDir := setupTestCoreWithMirror(t)
+
+	b := &bean.Bean{
+		ID:     "mirror-1",
+		Slug:   "test-mirror",
+		Title:  "Test Mirror",
+		Status: "todo",
+	}
+	if err := core.Create(b); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	// Check file exists in both primary and mirror
+	primaryPath := filepath.Join(primaryDir, b.Path)
+	mirrorPath := filepath.Join(mirrorDir, b.Path)
+
+	if _, err := os.Stat(primaryPath); os.IsNotExist(err) {
+		t.Error("bean file should exist in primary directory")
+	}
+	if _, err := os.Stat(mirrorPath); os.IsNotExist(err) {
+		t.Error("bean file should exist in mirror directory")
+	}
+
+	// Content should match
+	primaryContent, _ := os.ReadFile(primaryPath)
+	mirrorContent, _ := os.ReadFile(mirrorPath)
+	if string(primaryContent) != string(mirrorContent) {
+		t.Error("primary and mirror content should match")
+	}
+}
+
+func TestMirrorUpdate(t *testing.T) {
+	core, primaryDir, mirrorDir := setupTestCoreWithMirror(t)
+
+	b := &bean.Bean{
+		ID:     "mirror-upd",
+		Slug:   "test-update",
+		Title:  "Before Update",
+		Status: "todo",
+	}
+	if err := core.Create(b); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	b.Title = "After Update"
+	if err := core.Update(b, nil); err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+
+	// Mirror should have the updated content
+	mirrorPath := filepath.Join(mirrorDir, b.Path)
+	mirrorContent, err := os.ReadFile(mirrorPath)
+	if err != nil {
+		t.Fatalf("failed to read mirror file: %v", err)
+	}
+	primaryContent, _ := os.ReadFile(filepath.Join(primaryDir, b.Path))
+	if string(primaryContent) != string(mirrorContent) {
+		t.Error("mirror should have updated content matching primary")
+	}
+}
+
+func TestMirrorDelete(t *testing.T) {
+	core, _, mirrorDir := setupTestCoreWithMirror(t)
+
+	b := &bean.Bean{
+		ID:     "mirror-del",
+		Slug:   "test-delete",
+		Title:  "To Delete",
+		Status: "todo",
+	}
+	if err := core.Create(b); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	relPath := b.Path
+	if err := core.Delete("mirror-del"); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+
+	// Mirror file should also be removed
+	mirrorPath := filepath.Join(mirrorDir, relPath)
+	if _, err := os.Stat(mirrorPath); !os.IsNotExist(err) {
+		t.Error("bean file should be removed from mirror directory after Delete")
+	}
+}
+
+func TestMirrorArchive(t *testing.T) {
+	core, _, mirrorDir := setupTestCoreWithMirror(t)
+
+	b := &bean.Bean{
+		ID:     "mirror-arc",
+		Slug:   "test-archive",
+		Title:  "To Archive",
+		Status: "completed",
+	}
+	if err := core.Create(b); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	origPath := b.Path
+	if err := core.Archive("mirror-arc"); err != nil {
+		t.Fatalf("Archive() error = %v", err)
+	}
+
+	// Original mirror file should be gone
+	if _, err := os.Stat(filepath.Join(mirrorDir, origPath)); !os.IsNotExist(err) {
+		t.Error("original mirror file should be removed after Archive")
+	}
+
+	// Archived mirror file should exist
+	archivedPath := filepath.Join(mirrorDir, ArchiveDir, filepath.Base(origPath))
+	if _, err := os.Stat(archivedPath); os.IsNotExist(err) {
+		t.Error("archived mirror file should exist after Archive")
+	}
+}
+
+func TestMirrorUnarchive(t *testing.T) {
+	core, _, mirrorDir := setupTestCoreWithMirror(t)
+
+	b := &bean.Bean{
+		ID:     "mirror-una",
+		Slug:   "test-unarchive",
+		Title:  "To Unarchive",
+		Status: "completed",
+	}
+	if err := core.Create(b); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if err := core.Archive("mirror-una"); err != nil {
+		t.Fatalf("Archive() error = %v", err)
+	}
+	if err := core.Unarchive("mirror-una"); err != nil {
+		t.Fatalf("Unarchive() error = %v", err)
+	}
+
+	// Mirror file should be back in root
+	mainPath := filepath.Join(mirrorDir, "mirror-una--test-unarchive.md")
+	if _, err := os.Stat(mainPath); os.IsNotExist(err) {
+		t.Error("mirror file should exist in root after Unarchive")
+	}
+
+	// Archive copy should be gone
+	archivePath := filepath.Join(mirrorDir, ArchiveDir, "mirror-una--test-unarchive.md")
+	if _, err := os.Stat(archivePath); !os.IsNotExist(err) {
+		t.Error("mirror archive file should be removed after Unarchive")
+	}
+}
+
+func TestMirrorFailureDoesNotBreakPrimary(t *testing.T) {
+	tmpDir := t.TempDir()
+	primaryDir := filepath.Join(tmpDir, "primary", BeansDir)
+	if err := os.MkdirAll(primaryDir, 0755); err != nil {
+		t.Fatalf("failed to create primary dir: %v", err)
+	}
+
+	// Point mirror to a non-writable path
+	mirrorDir := filepath.Join(tmpDir, "readonly", BeansDir)
+
+	cfg := config.Default()
+	core := New(primaryDir, cfg)
+	core.SetMirrorRoot(mirrorDir)
+	core.SetWarnWriter(nil) // suppress expected warnings
+	if err := core.Load(); err != nil {
+		t.Fatalf("failed to load core: %v", err)
+	}
+
+	// Create should succeed even though mirror fails
+	b := &bean.Bean{
+		ID:     "mirror-fail",
+		Slug:   "test-fail",
+		Title:  "Mirror Fail",
+		Status: "todo",
+	}
+	if err := core.Create(b); err != nil {
+		t.Fatalf("Create() should succeed even with failing mirror: %v", err)
+	}
+
+	// Primary file should exist
+	primaryPath := filepath.Join(primaryDir, b.Path)
+	if _, err := os.Stat(primaryPath); os.IsNotExist(err) {
+		t.Error("primary file should exist even when mirror fails")
+	}
+}
+
+func TestMirrorNotSetIsNoOp(t *testing.T) {
+	core, beansDir := setupTestCore(t)
+
+	b := &bean.Bean{
+		ID:     "no-mirror",
+		Slug:   "no-mirror",
+		Title:  "No Mirror",
+		Status: "todo",
+	}
+	if err := core.Create(b); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	// Just verify primary works fine with no mirror set
+	primaryPath := filepath.Join(beansDir, b.Path)
+	if _, err := os.Stat(primaryPath); os.IsNotExist(err) {
+		t.Error("primary file should exist")
+	}
+
+	if core.MirrorRoot() != "" {
+		t.Error("MirrorRoot() should be empty when not set")
+	}
+}
+
 func TestUpdateWithETagDebug(t *testing.T) {
 	core, _ := setupTestCore(t)
 
