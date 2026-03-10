@@ -129,6 +129,15 @@ func (m *Manager) spawnAndRun(beanID string, session *Session) {
 
 	log.Printf("[agent:%s] spawned claude process (pid=%d, dir=%s, args=%v)", beanID, cmd.Process.Pid, session.WorkDir, args)
 
+	// Inject bean context on first spawn (no prior session to resume)
+	if session.SessionID == "" && m.contextProvider != nil {
+		if ctx := m.contextProvider(beanID); ctx != "" {
+			if err := m.sendToProcess(proc, ctx); err != nil {
+				log.Printf("[agent:%s] failed to send context: %v", beanID, err)
+			}
+		}
+	}
+
 	// Send the initial user message
 	lastMsg := session.Messages[len(session.Messages)-1]
 	if err := m.sendToProcess(proc, lastMsg.Content); err != nil {

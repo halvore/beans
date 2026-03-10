@@ -179,7 +179,7 @@ func TestManagerPersistence(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create a manager with persistence
-	m := NewManager(dir)
+	m := NewManager(dir, nil)
 	if m.store == nil {
 		t.Fatal("expected store to be initialized")
 	}
@@ -200,7 +200,7 @@ func TestManagerPersistence(t *testing.T) {
 	m.store.saveSessionID("bean-1", "sess-abc")
 
 	// Create a new manager (simulating restart) — should load from disk
-	m2 := NewManager(dir)
+	m2 := NewManager(dir, nil)
 	s := m2.GetSession("bean-1")
 	if s == nil {
 		t.Fatal("expected session to be loaded from disk")

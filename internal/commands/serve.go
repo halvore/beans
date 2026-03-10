@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -76,7 +77,23 @@ func runServer(port int) error {
 	wtManager := worktree.NewManager(cfg.ConfigDir(), core.Root())
 
 	// Create agent session manager (with conversation persistence)
-	agentMgr := agent.NewManager(core.Root())
+	agentMgr := agent.NewManager(core.Root(), func(beanID string) string {
+		b, err := core.Get(beanID)
+		if err != nil {
+			return ""
+		}
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "You are working on bean %s: %q\n", b.ID, b.Title)
+		fmt.Fprintf(&sb, "Type: %s | Status: %s", b.Type, b.Status)
+		if b.Priority != "" {
+			fmt.Fprintf(&sb, " | Priority: %s", b.Priority)
+		}
+		sb.WriteString("\n")
+		if b.Body != "" {
+			fmt.Fprintf(&sb, "\nDescription:\n%s", b.Body)
+		}
+		return sb.String()
+	})
 	defer agentMgr.Shutdown()
 
 	// Create GraphQL server with explicit transports

@@ -6,13 +6,18 @@ import (
 	"sync"
 )
 
+// ContextProvider returns context text to inject into a new agent conversation
+// for the given beanID. Return "" to skip injection.
+type ContextProvider func(beanID string) string
+
 // Manager manages agent sessions — one per worktree (keyed by beanID).
 // It holds sessions in memory and provides pub/sub for session updates.
 type Manager struct {
-	mu        sync.RWMutex
-	sessions  map[string]*Session
-	processes map[string]*runningProcess
-	store     *store // JSONL persistence (nil if no beansDir)
+	mu              sync.RWMutex
+	sessions        map[string]*Session
+	processes       map[string]*runningProcess
+	store           *store // JSONL persistence (nil if no beansDir)
+	contextProvider ContextProvider
 
 	subMu       sync.Mutex
 	subscribers map[string][]chan struct{}
@@ -20,11 +25,12 @@ type Manager struct {
 
 // NewManager creates a new agent session manager.
 // If beansDir is non-empty, conversations are persisted to .beans/conversations/.
-func NewManager(beansDir string) *Manager {
+func NewManager(beansDir string, contextProvider ContextProvider) *Manager {
 	m := &Manager{
-		sessions:    make(map[string]*Session),
-		processes:   make(map[string]*runningProcess),
-		subscribers: make(map[string][]chan struct{}),
+		sessions:        make(map[string]*Session),
+		processes:       make(map[string]*runningProcess),
+		subscribers:     make(map[string][]chan struct{}),
+		contextProvider: contextProvider,
 	}
 
 	if beansDir != "" {

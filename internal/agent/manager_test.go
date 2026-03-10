@@ -5,7 +5,7 @@ import (
 )
 
 func TestNewManager(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	if m == nil {
 		t.Fatal("NewManager returned nil")
 	}
@@ -15,7 +15,7 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestGetSession_NotFound(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	s := m.GetSession("nonexistent")
 	if s != nil {
 		t.Errorf("expected nil, got %+v", s)
@@ -23,7 +23,7 @@ func TestGetSession_NotFound(t *testing.T) {
 }
 
 func TestGetSession_ReturnsSnapshot(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:        "test",
 		AgentType: "claude",
@@ -53,7 +53,7 @@ func TestGetSession_ReturnsSnapshot(t *testing.T) {
 }
 
 func TestSubscribeUnsubscribe(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("bean-1")
 
 	// Should have one subscriber
@@ -79,7 +79,7 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 }
 
 func TestNotify(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("bean-1")
 	defer m.Unsubscribe("bean-1", ch)
 
@@ -94,7 +94,7 @@ func TestNotify(t *testing.T) {
 }
 
 func TestNotify_NonBlocking(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("bean-1")
 	defer m.Unsubscribe("bean-1", ch)
 
@@ -115,7 +115,7 @@ func TestNotify_NonBlocking(t *testing.T) {
 }
 
 func TestAppendAssistantText(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:           "test",
 		streamingIdx: -1,
@@ -145,7 +145,7 @@ func TestAppendAssistantText(t *testing.T) {
 }
 
 func TestAppendAssistantText_InterleavedUserMessage(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:           "test",
 		streamingIdx: -1,
@@ -190,7 +190,7 @@ func TestAppendAssistantText_InterleavedUserMessage(t *testing.T) {
 }
 
 func TestSetError(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("test")
 	defer m.Unsubscribe("test", ch)
 
@@ -218,7 +218,7 @@ func TestSetError(t *testing.T) {
 }
 
 func TestStopSession(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:     "test",
 		Status: StatusRunning,
@@ -236,7 +236,7 @@ func TestStopSession(t *testing.T) {
 }
 
 func TestClearSession_RemovesSession(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:     "test",
 		Status: StatusIdle,
@@ -263,7 +263,7 @@ func TestClearSession_RemovesSession(t *testing.T) {
 }
 
 func TestClearSession_Notifies(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("test")
 	defer m.Unsubscribe("test", ch)
 
@@ -289,7 +289,7 @@ func TestClearSession_Notifies(t *testing.T) {
 }
 
 func TestClearSession_Nonexistent(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	// Should not error on clearing a session that doesn't exist
 	err := m.ClearSession("nonexistent")
 	if err != nil {
@@ -298,7 +298,7 @@ func TestClearSession_Nonexistent(t *testing.T) {
 }
 
 func TestSetPlanMode_CreatesSession(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 
 	err := m.SetPlanMode("test", true)
 	if err != nil {
@@ -318,7 +318,7 @@ func TestSetPlanMode_CreatesSession(t *testing.T) {
 }
 
 func TestSetPlanMode_TogglesExisting(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:        "test",
 		Status:    StatusIdle,
@@ -342,7 +342,7 @@ func TestSetPlanMode_TogglesExisting(t *testing.T) {
 }
 
 func TestSetPlanMode_NoopWhenSame(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("test")
 	defer m.Unsubscribe("test", ch)
 
@@ -372,7 +372,7 @@ func TestSetPlanMode_NoopWhenSame(t *testing.T) {
 }
 
 func TestSetPlanMode_IncludedInSnapshot(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:       "test",
 		Status:   StatusIdle,
@@ -386,7 +386,7 @@ func TestSetPlanMode_IncludedInSnapshot(t *testing.T) {
 }
 
 func TestHandleBlockingTool_ExitPlan(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("test")
 	defer m.Unsubscribe("test", ch)
 
@@ -425,7 +425,7 @@ func TestHandleBlockingTool_ExitPlan(t *testing.T) {
 }
 
 func TestHandleBlockingTool_EnterPlan(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:        "test",
 		Status:    StatusRunning,
@@ -448,7 +448,7 @@ func TestHandleBlockingTool_EnterPlan(t *testing.T) {
 }
 
 func TestSendMessage_ClearsPendingInteraction(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:        "test",
 		Status:    StatusIdle,
@@ -471,7 +471,7 @@ func TestSendMessage_ClearsPendingInteraction(t *testing.T) {
 }
 
 func TestHandleBlockingTool_AskUser(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:        "test",
 		Status:    StatusRunning,
@@ -613,7 +613,7 @@ func TestLoadOrCreateSession_DefaultsToYoloMode(t *testing.T) {
 }
 
 func TestSetYoloMode_CreatesSession(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 
 	err := m.SetYoloMode("test", true)
 	if err != nil {
@@ -633,7 +633,7 @@ func TestSetYoloMode_CreatesSession(t *testing.T) {
 }
 
 func TestSetYoloMode_TogglesExisting(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:        "test",
 		Status:    StatusIdle,
@@ -656,7 +656,7 @@ func TestSetYoloMode_TogglesExisting(t *testing.T) {
 }
 
 func TestSetYoloMode_NoopWhenSame(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("test")
 	defer m.Unsubscribe("test", ch)
 
@@ -686,7 +686,7 @@ func TestSetYoloMode_NoopWhenSame(t *testing.T) {
 }
 
 func TestSetYoloMode_IncludedInSnapshot(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:       "test",
 		Status:   StatusIdle,
@@ -735,7 +735,7 @@ func TestBuildClaudeArgs_YoloOverridesPlan(t *testing.T) {
 }
 
 func TestResolvePermission_Allow(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	ch := m.Subscribe("test")
 	defer m.Unsubscribe("test", ch)
 
@@ -788,7 +788,7 @@ func TestResolvePermission_Allow(t *testing.T) {
 }
 
 func TestResolvePermission_Deny(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 
 	m.sessions["test"] = &Session{
 		ID:     "test",
@@ -817,7 +817,7 @@ func TestResolvePermission_Deny(t *testing.T) {
 }
 
 func TestResolvePermission_NoSession(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	err := m.ResolvePermission("nonexistent", true)
 	if err == nil {
 		t.Error("expected error for nonexistent session")
@@ -825,7 +825,7 @@ func TestResolvePermission_NoSession(t *testing.T) {
 }
 
 func TestResolvePermission_NoPending(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	m.sessions["test"] = &Session{
 		ID:     "test",
 		Status: StatusIdle,
@@ -884,7 +884,7 @@ func TestBuildClaudeArgs_AllowedTools(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
-	m := NewManager("")
+	m := NewManager("", nil)
 	// Just verify it doesn't panic with no processes
 	m.Shutdown()
 }
