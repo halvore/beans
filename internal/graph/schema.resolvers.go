@@ -501,8 +501,8 @@ func (r *mutationResolver) RemoveBlockedBy(ctx context.Context, id string, targe
 	return b, nil
 }
 
-// CreateWorktree is the resolver for the createWorktree field.
-func (r *mutationResolver) CreateWorktree(ctx context.Context, beanID string) (*model.Worktree, error) {
+// StartWork is the resolver for the startWork field.
+func (r *mutationResolver) StartWork(ctx context.Context, beanID string) (*model.Worktree, error) {
 	if r.WorktreeMgr == nil {
 		return nil, fmt.Errorf("worktree support not available")
 	}
@@ -537,8 +537,8 @@ func (r *mutationResolver) CreateWorktree(ctx context.Context, beanID string) (*
 	}, nil
 }
 
-// RemoveWorktree is the resolver for the removeWorktree field.
-func (r *mutationResolver) RemoveWorktree(ctx context.Context, beanID string) (bool, error) {
+// StopWork is the resolver for the stopWork field.
+func (r *mutationResolver) StopWork(ctx context.Context, beanID string) (bool, error) {
 	if r.WorktreeMgr == nil {
 		return false, fmt.Errorf("worktree support not available")
 	}

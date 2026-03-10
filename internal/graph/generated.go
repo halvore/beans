@@ -110,17 +110,17 @@ type ComplexityRoot struct {
 		ArchiveBean       func(childComplexity int, id string) int
 		ClearAgentSession func(childComplexity int, beanID string) int
 		CreateBean        func(childComplexity int, input model.CreateBeanInput) int
-		CreateWorktree    func(childComplexity int, beanID string) int
 		DeleteBean        func(childComplexity int, id string) int
 		RemoveBlockedBy   func(childComplexity int, id string, targetID string, ifMatch *string) int
 		RemoveBlocking    func(childComplexity int, id string, targetID string, ifMatch *string) int
-		RemoveWorktree    func(childComplexity int, beanID string) int
 		ResolvePermission func(childComplexity int, beanID string, allow bool, always *bool) int
 		SendAgentMessage  func(childComplexity int, beanID string, message string) int
 		SetAgentPlanMode  func(childComplexity int, beanID string, planMode bool) int
 		SetAgentYoloMode  func(childComplexity int, beanID string, yoloMode bool) int
 		SetParent         func(childComplexity int, id string, parentID *string, ifMatch *string) int
+		StartWork         func(childComplexity int, beanID string) int
 		StopAgent         func(childComplexity int, beanID string) int
+		StopWork          func(childComplexity int, beanID string) int
 		UpdateBean        func(childComplexity int, id string, input model.UpdateBeanInput) int
 	}
 
@@ -173,8 +173,8 @@ type MutationResolver interface {
 	RemoveBlocking(ctx context.Context, id string, targetID string, ifMatch *string) (*bean.Bean, error)
 	AddBlockedBy(ctx context.Context, id string, targetID string, ifMatch *string) (*bean.Bean, error)
 	RemoveBlockedBy(ctx context.Context, id string, targetID string, ifMatch *string) (*bean.Bean, error)
-	CreateWorktree(ctx context.Context, beanID string) (*model.Worktree, error)
-	RemoveWorktree(ctx context.Context, beanID string) (bool, error)
+	StartWork(ctx context.Context, beanID string) (*model.Worktree, error)
+	StopWork(ctx context.Context, beanID string) (bool, error)
 	SendAgentMessage(ctx context.Context, beanID string, message string) (bool, error)
 	StopAgent(ctx context.Context, beanID string) (bool, error)
 	SetAgentPlanMode(ctx context.Context, beanID string, planMode bool) (bool, error)
@@ -518,17 +518,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateBean(childComplexity, args["input"].(model.CreateBeanInput)), true
-	case "Mutation.createWorktree":
-		if e.complexity.Mutation.CreateWorktree == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_createWorktree_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.CreateWorktree(childComplexity, args["beanId"].(string)), true
 	case "Mutation.deleteBean":
 		if e.complexity.Mutation.DeleteBean == nil {
 			break
@@ -562,17 +551,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.RemoveBlocking(childComplexity, args["id"].(string), args["targetId"].(string), args["ifMatch"].(*string)), true
-	case "Mutation.removeWorktree":
-		if e.complexity.Mutation.RemoveWorktree == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_removeWorktree_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.RemoveWorktree(childComplexity, args["beanId"].(string)), true
 	case "Mutation.resolvePermission":
 		if e.complexity.Mutation.ResolvePermission == nil {
 			break
@@ -628,6 +606,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.SetParent(childComplexity, args["id"].(string), args["parentId"].(*string), args["ifMatch"].(*string)), true
+	case "Mutation.startWork":
+		if e.complexity.Mutation.StartWork == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_startWork_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.StartWork(childComplexity, args["beanId"].(string)), true
 	case "Mutation.stopAgent":
 		if e.complexity.Mutation.StopAgent == nil {
 			break
@@ -639,6 +628,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.StopAgent(childComplexity, args["beanId"].(string)), true
+	case "Mutation.stopWork":
+		if e.complexity.Mutation.StopWork == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_stopWork_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.StopWork(childComplexity, args["beanId"].(string)), true
 	case "Mutation.updateBean":
 		if e.complexity.Mutation.UpdateBean == nil {
 			break
@@ -1030,17 +1030,6 @@ func (ec *executionContext) field_Mutation_createBean_args(ctx context.Context, 
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_createWorktree_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "beanId", ec.unmarshalNID2string)
-	if err != nil {
-		return nil, err
-	}
-	args["beanId"] = arg0
-	return args, nil
-}
-
 func (ec *executionContext) field_Mutation_deleteBean_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1091,17 +1080,6 @@ func (ec *executionContext) field_Mutation_removeBlocking_args(ctx context.Conte
 		return nil, err
 	}
 	args["ifMatch"] = arg2
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_removeWorktree_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "beanId", ec.unmarshalNID2string)
-	if err != nil {
-		return nil, err
-	}
-	args["beanId"] = arg0
 	return args, nil
 }
 
@@ -1195,7 +1173,29 @@ func (ec *executionContext) field_Mutation_setParent_args(ctx context.Context, r
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_startWork_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "beanId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["beanId"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_stopAgent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "beanId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["beanId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_stopWork_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "beanId", ec.unmarshalNID2string)
@@ -3374,15 +3374,15 @@ func (ec *executionContext) fieldContext_Mutation_removeBlockedBy(ctx context.Co
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_createWorktree(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_startWork(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Mutation_createWorktree,
+		ec.fieldContext_Mutation_startWork,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().CreateWorktree(ctx, fc.Args["beanId"].(string))
+			return ec.resolvers.Mutation().StartWork(ctx, fc.Args["beanId"].(string))
 		},
 		nil,
 		ec.marshalNWorktree2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐWorktree,
@@ -3391,7 +3391,7 @@ func (ec *executionContext) _Mutation_createWorktree(ctx context.Context, field 
 	)
 }
 
-func (ec *executionContext) fieldContext_Mutation_createWorktree(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_startWork(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -3418,22 +3418,22 @@ func (ec *executionContext) fieldContext_Mutation_createWorktree(ctx context.Con
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_createWorktree_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_startWork_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_removeWorktree(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_stopWork(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Mutation_removeWorktree,
+		ec.fieldContext_Mutation_stopWork,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().RemoveWorktree(ctx, fc.Args["beanId"].(string))
+			return ec.resolvers.Mutation().StopWork(ctx, fc.Args["beanId"].(string))
 		},
 		nil,
 		ec.marshalNBoolean2bool,
@@ -3442,7 +3442,7 @@ func (ec *executionContext) _Mutation_removeWorktree(ctx context.Context, field 
 	)
 }
 
-func (ec *executionContext) fieldContext_Mutation_removeWorktree(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_stopWork(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -3459,7 +3459,7 @@ func (ec *executionContext) fieldContext_Mutation_removeWorktree(ctx context.Con
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_removeWorktree_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_stopWork_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -7202,16 +7202,16 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "createWorktree":
+		case "startWork":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_createWorktree(ctx, field)
+				return ec._Mutation_startWork(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "removeWorktree":
+		case "stopWork":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_removeWorktree(ctx, field)
+				return ec._Mutation_stopWork(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++

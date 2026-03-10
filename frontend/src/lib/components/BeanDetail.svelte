@@ -76,7 +76,7 @@
 	async function startWork() {
 		startingWork = true;
 		worktreeError = null;
-		const ok = await worktreeStore.createWorktree(bean.id);
+		const ok = await worktreeStore.startWork(bean.id);
 		if (!ok) {
 			worktreeError = worktreeStore.error;
 		}
@@ -87,7 +87,7 @@
 		confirmingDestroy = false;
 		removingWorktree = true;
 		worktreeError = null;
-		const ok = await worktreeStore.removeWorktree(bean.id);
+		const ok = await worktreeStore.stopWork(bean.id);
 		if (!ok) {
 			worktreeError = worktreeStore.error;
 		}

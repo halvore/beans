@@ -130,14 +130,15 @@ type Mutation {
   removeBlockedBy(id: ID!, targetId: ID!, ifMatch: String): Bean!
 
   """
-  Create a git worktree for a bean. Sets bean status to in-progress.
+  Start work on a bean: creates a git worktree and sets status to in-progress.
+  Returns an error if the bean already has a worktree.
   """
-  createWorktree(beanId: ID!): Worktree!
+  startWork(beanId: ID!): Worktree!
 
   """
-  Remove a git worktree for a bean.
+  Stop work on a bean: removes the git worktree.
   """
-  removeWorktree(beanId: ID!): Boolean!
+  stopWork(beanId: ID!): Boolean!
 
   """
   Send a message to the agent in a worktree. Starts a session if none exists.

@@ -18,9 +18,9 @@ const WORKTREES_SUBSCRIPTION = gql`
 	}
 `;
 
-const CREATE_WORKTREE = gql`
-	mutation CreateWorktree($beanId: ID!) {
-		createWorktree(beanId: $beanId) {
+const START_WORK = gql`
+	mutation StartWork($beanId: ID!) {
+		startWork(beanId: $beanId) {
 			beanId
 			branch
 			path
@@ -28,9 +28,9 @@ const CREATE_WORKTREE = gql`
 	}
 `;
 
-const REMOVE_WORKTREE = gql`
-	mutation RemoveWorktree($beanId: ID!) {
-		removeWorktree(beanId: $beanId)
+const STOP_WORK = gql`
+	mutation StopWork($beanId: ID!) {
+		stopWork(beanId: $beanId)
 	}
 `;
 
@@ -70,11 +70,11 @@ class WorktreeStore {
 		}
 	}
 
-	async createWorktree(beanId: string): Promise<boolean> {
+	async startWork(beanId: string): Promise<boolean> {
 		this.loading = true;
 		this.error = null;
 
-		const result = await client.mutation(CREATE_WORKTREE, { beanId }).toPromise();
+		const result = await client.mutation(START_WORK, { beanId }).toPromise();
 
 		this.loading = false;
 
@@ -86,11 +86,11 @@ class WorktreeStore {
 		return true;
 	}
 
-	async removeWorktree(beanId: string): Promise<boolean> {
+	async stopWork(beanId: string): Promise<boolean> {
 		this.loading = true;
 		this.error = null;
 
-		const result = await client.mutation(REMOVE_WORKTREE, { beanId }).toPromise();
+		const result = await client.mutation(STOP_WORK, { beanId }).toPromise();
 
 		this.loading = false;
 
