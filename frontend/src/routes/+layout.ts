@@ -7,6 +7,7 @@ export function load() {
   let planningView: 'backlog' | 'board' = 'backlog';
   let selectedBeanId: string | null = null;
   let showPlanningChat = false;
+  let showChanges = false;
   let filterText = '';
   let activeView: 'planning' | string = 'planning';
 
@@ -21,10 +22,12 @@ export function load() {
 
     showPlanningChat = localStorage.getItem('beans-planning-chat') === 'true';
 
+    showChanges = localStorage.getItem('beans-changes-pane') === 'true';
+
     filterText = localStorage.getItem('beans-filter-text') ?? '';
 
     activeView = localStorage.getItem('beans-active-view') || 'planning';
   }
 
-  return { planningView, selectedBeanId, showPlanningChat, filterText, activeView };
+  return { planningView, selectedBeanId, showPlanningChat, showChanges, filterText, activeView };
 }

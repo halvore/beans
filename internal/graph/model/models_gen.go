@@ -157,6 +157,20 @@ type CreateBeanInput struct {
 	Prefix *string `json:"prefix,omitempty"`
 }
 
+// A changed file in a git working tree
+type FileChange struct {
+	// File path relative to the repo/worktree root
+	Path string `json:"path"`
+	// Change status: modified, added, deleted, untracked, renamed
+	Status string `json:"status"`
+	// Number of added lines
+	Additions int `json:"additions"`
+	// Number of deleted lines
+	Deletions int `json:"deletions"`
+	// Whether this change is staged
+	Staged bool `json:"staged"`
+}
+
 type Mutation struct {
 }
 

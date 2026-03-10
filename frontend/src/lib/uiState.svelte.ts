@@ -59,6 +59,14 @@ class UIState {
     localStorage.setItem('beans-planning-chat', this.showPlanningChat ? 'true' : 'false');
   }
 
+  // Changes pane (persisted to localStorage)
+  showChanges = $state(false);
+
+  toggleChanges() {
+    this.showChanges = !this.showChanges;
+    localStorage.setItem('beans-changes-pane', this.showChanges ? 'true' : 'false');
+  }
+
   // Filter text (persisted to localStorage)
   filterText = $state('');
 

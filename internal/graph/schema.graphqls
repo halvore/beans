@@ -22,6 +22,11 @@ type Query {
   Get the current agent session for a worktree (null if none)
   """
   agentSession(beanId: ID!): AgentSession
+
+  """
+  Get file changes for a directory. If path is null, uses the project root.
+  """
+  fileChanges(path: String): [FileChange!]!
 }
 
 type Subscription {
@@ -408,6 +413,22 @@ type Worktree {
   branch: String!
   "Filesystem path to the worktree"
   path: String!
+}
+
+"""
+A changed file in a git working tree
+"""
+type FileChange {
+  "File path relative to the repo/worktree root"
+  path: String!
+  "Change status: modified, added, deleted, untracked, renamed"
+  status: String!
+  "Number of added lines"
+  additions: Int!
+  "Number of deleted lines"
+  deletions: Int!
+  "Whether this change is staged"
+  staged: Boolean!
 }
 
 """

@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hmans/beans/internal/gitutil"
 	"github.com/hmans/beans/internal/graph/model"
 	"github.com/hmans/beans/pkg/bean"
 	"github.com/hmans/beans/pkg/beancore"
@@ -703,6 +704,48 @@ func (r *queryResolver) AgentSession(ctx context.Context, beanID string) (*model
 		return nil, nil
 	}
 	return agentSessionToModel(s), nil
+}
+
+// FileChanges is the resolver for the fileChanges field.
+func (r *queryResolver) FileChanges(ctx context.Context, path *string) ([]*model.FileChange, error) {
+	dir := r.ProjectRoot
+	if path != nil && *path != "" {
+		// Validate the path is a known worktree to prevent arbitrary filesystem access
+		if r.WorktreeMgr != nil {
+			wts, err := r.WorktreeMgr.List()
+			if err != nil {
+				return nil, err
+			}
+			valid := false
+			for _, wt := range wts {
+				if wt.Path == *path {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return nil, fmt.Errorf("unknown worktree path: %s", *path)
+			}
+		}
+		dir = *path
+	}
+
+	changes, err := gitutil.FileChanges(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*model.FileChange, len(changes))
+	for i, c := range changes {
+		result[i] = &model.FileChange{
+			Path:      c.Path,
+			Status:    c.Status,
+			Additions: c.Additions,
+			Deletions: c.Deletions,
+			Staged:    c.Staged,
+		}
+	}
+	return result, nil
 }
 
 // BeanChanged is the resolver for the beanChanged field.
