@@ -2,6 +2,8 @@
 	import { ui } from '$lib/uiState.svelte';
 
 	let inputEl = $state<HTMLInputElement | null>(null);
+	const isMac = navigator.platform.startsWith('Mac');
+	const shortcutHint = isMac ? '⌘/' : 'Ctrl+/';
 
 	export function focus() {
 		inputEl?.focus();
@@ -12,7 +14,7 @@
 	<input
 		bind:this={inputEl}
 		type="text"
-		placeholder="Filter beans…"
+		placeholder="Filter beans… ({shortcutHint})"
 		value={ui.filterText}
 		oninput={(e) => ui.setFilterText(e.currentTarget.value)}
 		class="w-full rounded border border-border bg-surface px-3 py-1.5 pr-8 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
