@@ -3,10 +3,13 @@
   import { beansStore, sortBeans } from '$lib/beans.svelte';
   import { applyDrop } from '$lib/dragOrder';
   import { matchesFilter } from '$lib/filter';
+  import { client } from '$lib/graphqlClient';
   import { ui } from '$lib/uiState.svelte';
   import { typeBorders } from '$lib/styles';
   import { fade } from 'svelte/transition';
+  import { gql } from 'urql';
   import BeanCard from './BeanCard.svelte';
+  import ConfirmModal from './ConfirmModal.svelte';
 
   interface Props {
     onSelect?: (bean: Bean) => void;
@@ -14,6 +17,25 @@
   }
 
   let { onSelect, selectedId = null }: Props = $props();
+
+  let confirmingArchiveAll = $state(false);
+  let archivingAll = $state(false);
+
+  const ARCHIVE_BEAN = gql`
+    mutation ArchiveBean($id: ID!) {
+      archiveBean(id: $id)
+    }
+  `;
+
+  async function archiveAll() {
+    archivingAll = true;
+    const completedBeans = beansForStatus('completed');
+    for (const bean of completedBeans) {
+      await client.mutation(ARCHIVE_BEAN, { id: bean.id }).toPromise();
+    }
+    archivingAll = false;
+    confirmingArchiveAll = false;
+  }
 
   const columns = [
     { status: 'draft', label: 'Draft', color: 'bg-status-draft-bg text-status-draft-text' },
@@ -101,7 +123,7 @@
 </script>
 
 <div class="flex h-full overflow-x-auto p-4">
-  {#each columns as col}
+  {#each columns as col (col.status)}
     {@const beans = beansForStatus(col.status)}
     <div class="flex w-75 min-w-65 shrink-0 flex-col" data-status={col.status}>
       <!-- Column header -->
@@ -110,6 +132,16 @@
           >{col.label}</span
         >
         <span class="text-xs text-text-faint">{beans.length}</span>
+        {#if col.status === 'completed' && beans.length > 0}
+          <button
+            class="cursor-pointer text-text-faint transition-colors hover:text-text-muted"
+            title="Archive all completed beans"
+            onclick={() => (confirmingArchiveAll = true)}
+            disabled={archivingAll}
+          >
+            <span class="icon-[uil--archive] size-3.5"></span>
+          </button>
+        {/if}
       </div>
 
       <!-- Cards (drop zone) -->
@@ -170,3 +202,15 @@
     </div>
   {/each}
 </div>
+
+{#if confirmingArchiveAll}
+  {@const completedCount = beansForStatus('completed').length}
+  <ConfirmModal
+    title="Archive All Completed"
+    message="Are you sure you want to archive all {completedCount} completed beans? This will move them to the archive directory."
+    confirmLabel="Archive All"
+    danger={false}
+    onConfirm={archiveAll}
+    onCancel={() => (confirmingArchiveAll = false)}
+  />
+{/if}

@@ -55,4 +55,15 @@ export class BoardPage {
       .locator('[role="listitem"]', { hasText: title })
       .waitFor({ state: 'detached', timeout: 10_000 });
   }
+
+  /** Get the "Archive all" button in the completed column. */
+  get archiveAllButton() {
+    return this.column('completed').getByRole('button', { name: 'Archive all completed beans' });
+  }
+
+  /** Click the "Archive all" button and confirm the modal. */
+  async archiveAllCompleted() {
+    await this.archiveAllButton.click();
+    await this.page.getByRole('button', { name: 'Archive All', exact: true }).click();
+  }
 }
