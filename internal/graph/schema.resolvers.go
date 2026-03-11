@@ -16,6 +16,11 @@ import (
 	"github.com/hmans/beans/pkg/beancore"
 )
 
+// IsDirty is the resolver for the isDirty field.
+func (r *beanResolver) IsDirty(ctx context.Context, obj *bean.Bean) (bool, error) {
+	return r.Core.IsDirty(obj.ID), nil
+}
+
 // ParentID is the resolver for the parentId field.
 func (r *beanResolver) ParentID(ctx context.Context, obj *bean.Bean) (*string, error) {
 	if obj.Parent == "" {
@@ -524,12 +529,19 @@ func (r *mutationResolver) StartWork(ctx context.Context, beanID string) (*model
 		return nil, err
 	}
 
-	// Set bean status to in-progress
+	// Set bean status to in-progress (runtime-only — the worktree agent will
+	// write the updated bean to its own .beans/ dir, and the watcher will pick it up)
 	if b.Status != "in-progress" {
 		b.Status = "in-progress"
-		if err := r.Core.Update(b, nil); err != nil {
+		if err := r.Core.Update(b, nil, beancore.WithPersist(false)); err != nil {
 			return nil, fmt.Errorf("worktree created but failed to update bean status: %w", err)
 		}
+	}
+
+	// Start watching the worktree's .beans/ directory for bean changes
+	if err := r.Core.WatchWorktreeBeans(wt.Path); err != nil {
+		// Non-fatal: worktree was created successfully, watching is best-effort
+		fmt.Printf("[beans] warning: failed to watch worktree beans: %v\n", err)
 	}
 
 	return &model.Worktree{
@@ -546,6 +558,16 @@ func (r *mutationResolver) StopWork(ctx context.Context, beanID string) (bool, e
 	}
 
 	normalizedID, _ := r.Core.NormalizeID(beanID)
+
+	// Find the worktree path before removing (for unwatching)
+	worktrees, _ := r.WorktreeMgr.List()
+	for _, wt := range worktrees {
+		if wt.BeanID == normalizedID {
+			r.Core.UnwatchWorktreeBeans(wt.Path)
+			break
+		}
+	}
+
 	if err := r.WorktreeMgr.Remove(normalizedID); err != nil {
 		return false, err
 	}
@@ -648,6 +670,19 @@ func (r *mutationResolver) ClearAgentSession(ctx context.Context, beanID string)
 // ArchiveBean is the resolver for the archiveBean field.
 func (r *mutationResolver) ArchiveBean(ctx context.Context, id string) (bool, error) {
 	if err := r.Core.Archive(id); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// SaveDirtyBeans is the resolver for the saveDirtyBeans field.
+func (r *mutationResolver) SaveDirtyBeans(ctx context.Context) (int, error) {
+	return r.Core.SaveDirty()
+}
+
+// SaveBean is the resolver for the saveBean field.
+func (r *mutationResolver) SaveBean(ctx context.Context, id string) (bool, error) {
+	if err := r.Core.SaveBean(id); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -760,6 +795,11 @@ func (r *queryResolver) FileChanges(ctx context.Context, path *string) ([]*model
 		}
 	}
 	return result, nil
+}
+
+// HasDirtyBeans is the resolver for the hasDirtyBeans field.
+func (r *queryResolver) HasDirtyBeans(ctx context.Context) (bool, error) {
+	return r.Core.HasDirty(), nil
 }
 
 // BeanChanged is the resolver for the beanChanged field.

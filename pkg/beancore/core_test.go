@@ -1874,6 +1874,216 @@ func TestUpdateWithETagDebug(t *testing.T) {
 	}
 }
 
+func TestDirtyTracking(t *testing.T) {
+	t.Run("create with persist writes to disk and is not dirty", func(t *testing.T) {
+		core, beansDir := setupTestCore(t)
+
+		b := &bean.Bean{ID: "d1", Title: "Persisted", Status: "todo"}
+		if err := core.Create(b); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+
+		if core.IsDirty("d1") {
+			t.Error("bean should not be dirty after persisted create")
+		}
+
+		// File should exist on disk
+		path := filepath.Join(beansDir, b.Path)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			t.Error("bean file should exist on disk")
+		}
+	})
+
+	t.Run("create with WithPersist(false) does not write to disk and is dirty", func(t *testing.T) {
+		core, beansDir := setupTestCore(t)
+
+		b := &bean.Bean{ID: "d2", Slug: "dirty", Title: "Dirty", Status: "todo"}
+		if err := core.Create(b, WithPersist(false)); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+
+		if !core.IsDirty("d2") {
+			t.Error("bean should be dirty after non-persisted create")
+		}
+
+		// Bean should be in memory
+		got, err := core.Get("d2")
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		if got.Title != "Dirty" {
+			t.Errorf("Title = %q, want %q", got.Title, "Dirty")
+		}
+
+		// File should NOT exist on disk (no path assigned when not persisted)
+		entries, _ := os.ReadDir(beansDir)
+		for _, e := range entries {
+			if e.Name() == "d2--dirty.md" {
+				t.Error("bean file should not exist on disk for non-persisted create")
+			}
+		}
+	})
+
+	t.Run("update with WithPersist(false) marks dirty", func(t *testing.T) {
+		core, _ := setupTestCore(t)
+
+		b := &bean.Bean{ID: "d3", Title: "Original", Status: "todo"}
+		if err := core.Create(b); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+
+		if core.IsDirty("d3") {
+			t.Error("should not be dirty after persisted create")
+		}
+
+		b.Title = "Updated"
+		if err := core.Update(b, nil, WithPersist(false)); err != nil {
+			t.Fatalf("Update() error = %v", err)
+		}
+
+		if !core.IsDirty("d3") {
+			t.Error("should be dirty after non-persisted update")
+		}
+
+		// In-memory state should reflect update
+		got, _ := core.Get("d3")
+		if got.Title != "Updated" {
+			t.Errorf("Title = %q, want %q", got.Title, "Updated")
+		}
+	})
+
+	t.Run("persisted update clears dirty flag", func(t *testing.T) {
+		core, _ := setupTestCore(t)
+
+		b := &bean.Bean{ID: "d4", Title: "Original", Status: "todo"}
+		if err := core.Create(b); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+
+		// Make it dirty
+		b.Title = "Dirty"
+		if err := core.Update(b, nil, WithPersist(false)); err != nil {
+			t.Fatalf("Update() error = %v", err)
+		}
+		if !core.IsDirty("d4") {
+			t.Fatal("should be dirty")
+		}
+
+		// Now persist
+		b.Title = "Persisted"
+		if err := core.Update(b, nil); err != nil {
+			t.Fatalf("Update() error = %v", err)
+		}
+		if core.IsDirty("d4") {
+			t.Error("should not be dirty after persisted update")
+		}
+	})
+
+	t.Run("HasDirty and DirtyIDs", func(t *testing.T) {
+		core, _ := setupTestCore(t)
+
+		if core.HasDirty() {
+			t.Error("should not have dirty beans initially")
+		}
+
+		b1 := &bean.Bean{ID: "d5", Title: "One", Status: "todo"}
+		core.Create(b1, WithPersist(false))
+
+		b2 := &bean.Bean{ID: "d6", Title: "Two", Status: "todo"}
+		core.Create(b2, WithPersist(false))
+
+		if !core.HasDirty() {
+			t.Error("should have dirty beans")
+		}
+
+		ids := core.DirtyIDs()
+		if len(ids) != 2 {
+			t.Errorf("DirtyIDs() returned %d IDs, want 2", len(ids))
+		}
+	})
+
+	t.Run("SaveDirty persists all dirty beans", func(t *testing.T) {
+		core, beansDir := setupTestCore(t)
+
+		b1 := &bean.Bean{ID: "d7", Slug: "save-one", Title: "Save One", Status: "todo"}
+		core.Create(b1, WithPersist(false))
+
+		b2 := &bean.Bean{ID: "d8", Slug: "save-two", Title: "Save Two", Status: "todo"}
+		core.Create(b2, WithPersist(false))
+
+		saved, err := core.SaveDirty()
+		if err != nil {
+			t.Fatalf("SaveDirty() error = %v", err)
+		}
+		if saved != 2 {
+			t.Errorf("SaveDirty() = %d, want 2", saved)
+		}
+
+		if core.HasDirty() {
+			t.Error("should not have dirty beans after SaveDirty")
+		}
+
+		// Files should now exist on disk
+		for _, id := range []string{"d7", "d8"} {
+			b, _ := core.Get(id)
+			path := filepath.Join(beansDir, b.Path)
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				t.Errorf("bean %s file should exist on disk after SaveDirty", id)
+			}
+		}
+	})
+
+	t.Run("SaveBean persists a single bean", func(t *testing.T) {
+		core, beansDir := setupTestCore(t)
+
+		b := &bean.Bean{ID: "d9", Slug: "single-save", Title: "Single", Status: "todo"}
+		core.Create(b, WithPersist(false))
+
+		if err := core.SaveBean("d9"); err != nil {
+			t.Fatalf("SaveBean() error = %v", err)
+		}
+
+		if core.IsDirty("d9") {
+			t.Error("should not be dirty after SaveBean")
+		}
+
+		got, _ := core.Get("d9")
+		path := filepath.Join(beansDir, got.Path)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			t.Error("bean file should exist on disk after SaveBean")
+		}
+	})
+
+	t.Run("Load clears dirty state", func(t *testing.T) {
+		core, _ := setupTestCore(t)
+
+		b := &bean.Bean{ID: "d10", Title: "Will Reload", Status: "todo"}
+		core.Create(b) // persist to disk first
+
+		b.Title = "Dirty"
+		core.Update(b, nil, WithPersist(false))
+
+		if !core.IsDirty("d10") {
+			t.Fatal("should be dirty")
+		}
+
+		// Reload from disk
+		if err := core.Load(); err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if core.HasDirty() {
+			t.Error("should not have dirty beans after Load")
+		}
+
+		// Should have reverted to disk state
+		got, _ := core.Get("d10")
+		if got.Title != "Will Reload" {
+			t.Errorf("Title = %q, want %q (should revert to disk state)", got.Title, "Will Reload")
+		}
+	})
+}
+
 func TestLoadSkipsDotPrefixedSubdirectories(t *testing.T) {
 	core, beansDir := setupTestCore(t)
 

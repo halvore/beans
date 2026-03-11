@@ -317,6 +317,7 @@ func (c *Core) handleChanges(changes map[string]fsnotify.Op) {
 
 			_, existed := c.beans[newBean.ID]
 			c.beans[newBean.ID] = newBean
+			delete(c.dirty, newBean.ID) // Disk is now up-to-date
 
 			// Update search index
 			if c.searchIndex != nil {

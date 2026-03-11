@@ -26,6 +26,14 @@ You already know what beans is. This is the beans repository.
 
 - When a mutation removes or clears state (e.g., deleting a session), the subscription resolver must still send an explicit "empty" payload to the frontend. Never skip `nil` results with `continue` — the frontend needs to know the state changed.
 
+# Worktree State Architecture
+
+- `beans-serve` holds **runtime state** as the authoritative view of all beans. It initializes from main repo disk, then merges in changes from worktrees and the GraphQL API.
+- The CLI in a worktree uses the **worktree's local `.beans/`** directory — it does NOT redirect to the main repo. This means worktree agents' bean changes travel with their PR.
+- `beans-serve` watches active worktrees' `.beans/` dirs and merges file changes into runtime state as "dirty" (not persisted to main disk).
+- The `startWork` mutation uses `WithPersist(false)` — status changes are runtime-only until the PR merges.
+- When a PR merges and the bean file lands on main, the main watcher picks it up and the dirty flag clears.
+
 # Extra rules for our own beans/issues
 
 - Use the `idea` tag for ideas and proposals.

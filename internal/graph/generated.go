@@ -99,6 +99,7 @@ type ComplexityRoot struct {
 		ID                 func(childComplexity int) int
 		ImplicitStatus     func(childComplexity int) int
 		ImplicitStatusFrom func(childComplexity int) int
+		IsDirty            func(childComplexity int) int
 		Order              func(childComplexity int) int
 		Parent             func(childComplexity int) int
 		ParentID           func(childComplexity int) int
@@ -135,6 +136,8 @@ type ComplexityRoot struct {
 		DeleteBean                 func(childComplexity int, id string) int
 		RemoveBlockedBy            func(childComplexity int, id string, targetID string, ifMatch *string) int
 		RemoveBlocking             func(childComplexity int, id string, targetID string, ifMatch *string) int
+		SaveBean                   func(childComplexity int, id string) int
+		SaveDirtyBeans             func(childComplexity int) int
 		SendAgentMessage           func(childComplexity int, beanID string, message string) int
 		SetAgentActMode            func(childComplexity int, beanID string, actMode bool) int
 		SetAgentPendingInteraction func(childComplexity int, beanID string, typeArg model.InteractionType, planContent *string) int
@@ -153,11 +156,12 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		AgentSession func(childComplexity int, beanID string) int
-		Bean         func(childComplexity int, id string) int
-		Beans        func(childComplexity int, filter *model.BeanFilter) int
-		FileChanges  func(childComplexity int, path *string) int
-		Worktrees    func(childComplexity int) int
+		AgentSession  func(childComplexity int, beanID string) int
+		Bean          func(childComplexity int, id string) int
+		Beans         func(childComplexity int, filter *model.BeanFilter) int
+		FileChanges   func(childComplexity int, path *string) int
+		HasDirtyBeans func(childComplexity int) int
+		Worktrees     func(childComplexity int) int
 	}
 
 	SubagentActivity struct {
@@ -183,6 +187,7 @@ type ComplexityRoot struct {
 }
 
 type BeanResolver interface {
+	IsDirty(ctx context.Context, obj *bean.Bean) (bool, error)
 	ParentID(ctx context.Context, obj *bean.Bean) (*string, error)
 	BlockingIds(ctx context.Context, obj *bean.Bean) ([]string, error)
 	BlockedByIds(ctx context.Context, obj *bean.Bean) ([]string, error)
@@ -211,6 +216,8 @@ type MutationResolver interface {
 	SetAgentPendingInteraction(ctx context.Context, beanID string, typeArg model.InteractionType, planContent *string) (bool, error)
 	ClearAgentSession(ctx context.Context, beanID string) (bool, error)
 	ArchiveBean(ctx context.Context, id string) (bool, error)
+	SaveDirtyBeans(ctx context.Context) (int, error)
+	SaveBean(ctx context.Context, id string) (bool, error)
 }
 type QueryResolver interface {
 	Bean(ctx context.Context, id string) (*bean.Bean, error)
@@ -218,6 +225,7 @@ type QueryResolver interface {
 	Worktrees(ctx context.Context) ([]*model.Worktree, error)
 	AgentSession(ctx context.Context, beanID string) (*model.AgentSession, error)
 	FileChanges(ctx context.Context, path *string) ([]*model.FileChange, error)
+	HasDirtyBeans(ctx context.Context) (bool, error)
 }
 type SubscriptionResolver interface {
 	BeanChanged(ctx context.Context, includeInitial *bool) (<-chan *model.BeanChangeEvent, error)
@@ -457,6 +465,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Bean.ImplicitStatusFrom(childComplexity), true
+	case "Bean.isDirty":
+		if e.complexity.Bean.IsDirty == nil {
+			break
+		}
+
+		return e.complexity.Bean.IsDirty(childComplexity), true
 	case "Bean.order":
 		if e.complexity.Bean.Order == nil {
 			break
@@ -662,6 +676,23 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.RemoveBlocking(childComplexity, args["id"].(string), args["targetId"].(string), args["ifMatch"].(*string)), true
+	case "Mutation.saveBean":
+		if e.complexity.Mutation.SaveBean == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_saveBean_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.SaveBean(childComplexity, args["id"].(string)), true
+	case "Mutation.saveDirtyBeans":
+		if e.complexity.Mutation.SaveDirtyBeans == nil {
+			break
+		}
+
+		return e.complexity.Mutation.SaveDirtyBeans(childComplexity), true
 	case "Mutation.sendAgentMessage":
 		if e.complexity.Mutation.SendAgentMessage == nil {
 			break
@@ -825,6 +856,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.FileChanges(childComplexity, args["path"].(*string)), true
+	case "Query.hasDirtyBeans":
+		if e.complexity.Query.HasDirtyBeans == nil {
+			break
+		}
+
+		return e.complexity.Query.HasDirtyBeans(childComplexity), true
 	case "Query.worktrees":
 		if e.complexity.Query.Worktrees == nil {
 			break
@@ -1221,6 +1258,17 @@ func (ec *executionContext) field_Mutation_removeBlocking_args(ctx context.Conte
 		return nil, err
 	}
 	args["ifMatch"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_saveBean_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -2508,6 +2556,35 @@ func (ec *executionContext) fieldContext_Bean_etag(_ context.Context, field grap
 	return fc, nil
 }
 
+func (ec *executionContext) _Bean_isDirty(ctx context.Context, field graphql.CollectedField, obj *bean.Bean) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Bean_isDirty,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Bean().IsDirty(ctx, obj)
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Bean_isDirty(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Bean",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Bean_parentId(ctx context.Context, field graphql.CollectedField, obj *bean.Bean) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2646,6 +2723,8 @@ func (ec *executionContext) fieldContext_Bean_blockedBy(ctx context.Context, fie
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -2733,6 +2812,8 @@ func (ec *executionContext) fieldContext_Bean_blocking(ctx context.Context, fiel
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -2819,6 +2900,8 @@ func (ec *executionContext) fieldContext_Bean_parent(_ context.Context, field gr
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -2895,6 +2978,8 @@ func (ec *executionContext) fieldContext_Bean_children(ctx context.Context, fiel
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -3068,6 +3153,8 @@ func (ec *executionContext) fieldContext_BeanChangeEvent_bean(_ context.Context,
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -3318,6 +3405,8 @@ func (ec *executionContext) fieldContext_Mutation_createBean(ctx context.Context
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -3405,6 +3494,8 @@ func (ec *executionContext) fieldContext_Mutation_updateBean(ctx context.Context
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -3533,6 +3624,8 @@ func (ec *executionContext) fieldContext_Mutation_setParent(ctx context.Context,
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -3620,6 +3713,8 @@ func (ec *executionContext) fieldContext_Mutation_addBlocking(ctx context.Contex
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -3707,6 +3802,8 @@ func (ec *executionContext) fieldContext_Mutation_removeBlocking(ctx context.Con
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -3794,6 +3891,8 @@ func (ec *executionContext) fieldContext_Mutation_addBlockedBy(ctx context.Conte
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -3881,6 +3980,8 @@ func (ec *executionContext) fieldContext_Mutation_removeBlockedBy(ctx context.Co
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -4296,6 +4397,76 @@ func (ec *executionContext) fieldContext_Mutation_archiveBean(ctx context.Contex
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_saveDirtyBeans(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_saveDirtyBeans,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Mutation().SaveDirtyBeans(ctx)
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_saveDirtyBeans(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_saveBean(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_saveBean,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().SaveBean(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_saveBean(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_saveBean_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PendingInteraction_type(ctx context.Context, field graphql.CollectedField, obj *model.PendingInteraction) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4444,6 +4615,8 @@ func (ec *executionContext) fieldContext_Query_bean(ctx context.Context, field g
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -4531,6 +4704,8 @@ func (ec *executionContext) fieldContext_Query_beans(ctx context.Context, field 
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -4720,6 +4895,35 @@ func (ec *executionContext) fieldContext_Query_fileChanges(ctx context.Context, 
 	if fc.Args, err = ec.field_Query_fileChanges_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_hasDirtyBeans(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_hasDirtyBeans,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Query().HasDirtyBeans(ctx)
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_hasDirtyBeans(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
 	}
 	return fc, nil
 }
@@ -5215,6 +5419,8 @@ func (ec *executionContext) fieldContext_Worktree_bean(_ context.Context, field 
 				return ec.fieldContext_Bean_order(ctx, field)
 			case "etag":
 				return ec.fieldContext_Bean_etag(ctx, field)
+			case "isDirty":
+				return ec.fieldContext_Bean_isDirty(ctx, field)
 			case "parentId":
 				return ec.fieldContext_Bean_parentId(ctx, field)
 			case "blockingIds":
@@ -7552,6 +7758,42 @@ func (ec *executionContext) _Bean(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "isDirty":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Bean_isDirty(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "parentId":
 			field := field
 
@@ -8130,6 +8372,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "saveDirtyBeans":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_saveDirtyBeans(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "saveBean":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_saveBean(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8307,6 +8563,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_fileChanges(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "hasDirtyBeans":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_hasDirtyBeans(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}

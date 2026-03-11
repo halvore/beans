@@ -50,14 +50,16 @@ type Core struct {
 	// In-memory state
 	mu    sync.RWMutex
 	beans map[string]*bean.Bean // ID -> Bean
+	dirty map[string]bool       // IDs of beans modified in runtime but not yet persisted to disk
 
 	// Search index (optional, lazy-initialized)
 	searchIndex *search.Index
 
 	// File watching (optional)
-	watching bool
-	done     chan struct{}
-	onChange func() // callback when beans change (legacy API)
+	watching          bool
+	done              chan struct{}
+	onChange          func() // callback when beans change (legacy API)
+	worktreeWatchers  map[string]*worktreeWatcher // worktree path -> watcher
 
 	// Event subscribers (for channel-based API)
 	subscribers map[uint64]*subscription
@@ -74,6 +76,7 @@ func New(root string, cfg *config.Config) *Core {
 		root:        root,
 		config:      cfg,
 		beans:       make(map[string]*bean.Bean),
+		dirty:       make(map[string]bool),
 		subscribers: make(map[uint64]*subscription),
 		warnWriter:  os.Stderr,
 	}
@@ -116,8 +119,9 @@ func (c *Core) loadFromDisk() error {
 	// Migrate legacy directory names (worktrees/ → .worktrees/, conversations/ → .conversations/)
 	c.migrateLegacyDirs()
 
-	// Clear existing beans
+	// Clear existing beans and dirty state
 	c.beans = make(map[string]*bean.Bean)
+	c.dirty = make(map[string]bool)
 
 	// Walk the .beans directory tree, loading all .md files
 	err := filepath.WalkDir(c.root, func(path string, d os.DirEntry, err error) error {
@@ -337,8 +341,108 @@ func (c *Core) NormalizeID(id string) (string, bool) {
 	return id, false
 }
 
-// Create adds a new bean, generating an ID if needed, and writes it to disk.
-func (c *Core) Create(b *bean.Bean) error {
+// UpdateOption configures optional behavior for Create/Update operations.
+type UpdateOption func(*updateOptions)
+
+type updateOptions struct {
+	persist bool // whether to write to disk (default: true)
+}
+
+func defaultUpdateOptions() updateOptions {
+	return updateOptions{persist: true}
+}
+
+// WithPersist controls whether the operation writes to disk.
+// When false, the bean is only updated in memory and marked as dirty.
+func WithPersist(persist bool) UpdateOption {
+	return func(o *updateOptions) {
+		o.persist = persist
+	}
+}
+
+// IsDirty returns true if the bean with the given ID has been modified in
+// runtime but not yet persisted to disk.
+func (c *Core) IsDirty(id string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.dirty[id]
+}
+
+// DirtyIDs returns the IDs of all beans that have unsaved changes.
+func (c *Core) DirtyIDs() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	ids := make([]string, 0, len(c.dirty))
+	for id := range c.dirty {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// HasDirty returns true if there are any unsaved bean changes.
+func (c *Core) HasDirty() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.dirty) > 0
+}
+
+// SaveDirty persists all dirty beans to disk and clears their dirty flags.
+// Returns the number of beans saved.
+func (c *Core) SaveDirty() (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	saved := 0
+	for id := range c.dirty {
+		b, ok := c.beans[id]
+		if !ok {
+			// Bean was deleted after being dirtied, just clear flag
+			delete(c.dirty, id)
+			continue
+		}
+
+		if err := c.saveToDisk(b); err != nil {
+			return saved, fmt.Errorf("saving bean %s: %w", id, err)
+		}
+
+		delete(c.dirty, id)
+		saved++
+	}
+
+	return saved, nil
+}
+
+// SaveBean persists a specific dirty bean to disk and clears its dirty flag.
+func (c *Core) SaveBean(id string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.dirty[id] {
+		return nil // Not dirty, nothing to do
+	}
+
+	b, ok := c.beans[id]
+	if !ok {
+		delete(c.dirty, id)
+		return ErrNotFound
+	}
+
+	if err := c.saveToDisk(b); err != nil {
+		return fmt.Errorf("saving bean %s: %w", id, err)
+	}
+
+	delete(c.dirty, id)
+	return nil
+}
+
+// Create adds a new bean, generating an ID if needed.
+// By default, persists to disk. Use WithPersist(false) to only update runtime state.
+func (c *Core) Create(b *bean.Bean, opts ...UpdateOption) error {
+	o := defaultUpdateOptions()
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -360,9 +464,14 @@ func (c *Core) Create(b *bean.Bean) error {
 	b.CreatedAt = &now
 	b.UpdatedAt = &now
 
-	// Write to disk
-	if err := c.saveToDisk(b); err != nil {
-		return err
+	if o.persist {
+		// Write to disk
+		if err := c.saveToDisk(b); err != nil {
+			return err
+		}
+	} else {
+		// Mark as dirty (runtime-only change)
+		c.dirty[b.ID] = true
 	}
 
 	// Add to in-memory map
@@ -378,10 +487,15 @@ func (c *Core) Create(b *bean.Bean) error {
 	return nil
 }
 
-// Update modifies an existing bean and writes it to disk.
-// If ifMatch is provided, validates the current on-disk version's etag matches before updating.
-// This provides optimistic concurrency control to prevent lost updates.
-func (c *Core) Update(b *bean.Bean, ifMatch *string) error {
+// Update modifies an existing bean.
+// If ifMatch is provided, validates the current version's etag matches before updating.
+// By default, persists to disk. Use WithPersist(false) to only update runtime state.
+func (c *Core) Update(b *bean.Bean, ifMatch *string, opts ...UpdateOption) error {
+	o := defaultUpdateOptions()
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -403,13 +517,12 @@ func (c *Core) Update(b *bean.Bean, ifMatch *string) error {
 		// This is necessary because the in-memory bean may have already been modified
 		// (Go uses pointers, so modifying the bean passed to Update also modifies c.beans[id])
 		var currentETag string
-		if storedBean.Path != "" {
+		if storedBean.Path != "" && !c.dirty[b.ID] {
 			// Read current file from disk to calculate etag
 			diskPath := filepath.Join(c.root, storedBean.Path)
 			content, err := os.ReadFile(diskPath)
 			if err != nil {
 				// If file doesn't exist yet, fall back to stored bean's etag
-				// This can happen for beans created but not yet persisted
 				currentETag = storedBean.ETag()
 			} else {
 				// Calculate etag from on-disk content
@@ -418,7 +531,7 @@ func (c *Core) Update(b *bean.Bean, ifMatch *string) error {
 				currentETag = hex.EncodeToString(h.Sum(nil))
 			}
 		} else {
-			// No path yet, use in-memory etag
+			// No path yet or bean is dirty (not on disk), use in-memory etag
 			currentETag = storedBean.ETag()
 		}
 
@@ -434,9 +547,16 @@ func (c *Core) Update(b *bean.Bean, ifMatch *string) error {
 	now := time.Now().UTC().Truncate(time.Second)
 	b.UpdatedAt = &now
 
-	// Write to disk
-	if err := c.saveToDisk(b); err != nil {
-		return err
+	if o.persist {
+		// Write to disk
+		if err := c.saveToDisk(b); err != nil {
+			return err
+		}
+		// Clear dirty flag since we just persisted
+		delete(c.dirty, b.ID)
+	} else {
+		// Mark as dirty (runtime-only change)
+		c.dirty[b.ID] = true
 	}
 
 	// Update in-memory map
@@ -737,6 +857,9 @@ func (c *Core) FullPath(b *bean.Bean) string {
 
 // Close stops any active file watcher and cleans up resources.
 func (c *Core) Close() error {
+	// Stop worktree watchers first (outside main lock to avoid deadlock)
+	c.UnwatchAllWorktrees()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

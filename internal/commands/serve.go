@@ -104,6 +104,15 @@ func runServer(port int, origins []string) error {
 	// Create worktree manager (worktrees stored inside .beans/worktrees/)
 	wtManager := worktree.NewManager(cfg.ConfigDir(), core.Root(), cfg.GetWorktreeBaseRef())
 
+	// Watch existing worktrees for bean changes
+	if existingWTs, err := wtManager.List(); err == nil {
+		for _, wt := range existingWTs {
+			if err := core.WatchWorktreeBeans(wt.Path); err != nil {
+				fmt.Printf("[beans] warning: failed to watch worktree %s: %v\n", wt.BeanID, err)
+			}
+		}
+	}
+
 	// Create agent session manager (with conversation persistence)
 	agentMgr := agent.NewManager(core.Root(), func(beanID string) string {
 		// Central/planning agent gets a planning-focused prompt

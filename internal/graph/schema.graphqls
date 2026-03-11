@@ -27,6 +27,11 @@ type Query {
   Get file changes for a directory. If path is null, uses the project root.
   """
   fileChanges(path: String): [FileChange!]!
+
+  """
+  Whether any beans have unsaved runtime changes
+  """
+  hasDirtyBeans: Boolean!
 }
 
 type Subscription {
@@ -185,6 +190,16 @@ type Mutation {
   Only beans with archive-eligible statuses (completed, scrapped) can be archived.
   """
   archiveBean(id: ID!): Boolean!
+
+  """
+  Save all dirty beans to disk. Returns the number of beans saved.
+  """
+  saveDirtyBeans: Int!
+
+  """
+  Save a specific bean to disk (must be dirty). Returns true if saved.
+  """
+  saveBean(id: ID!): Boolean!
 }
 
 """
@@ -311,6 +326,8 @@ type Bean {
   order: String!
   "Content hash for optimistic concurrency control"
   etag: String!
+  "Whether this bean has unsaved runtime changes (not yet persisted to disk)"
+  isDirty: Boolean!
 
   # Direct link fields
   "Parent bean ID (optional, type-restricted)"
