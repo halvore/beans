@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/hmans/beans/pkg/safepath"
 )
 
 const branchPrefix = "beans/"
@@ -143,6 +145,10 @@ func parsePorcelain(output string) []Worktree {
 // If the branch beans/<beanID> already exists, it is reused; otherwise a new branch
 // is created from the configured base ref (default: main).
 func (m *Manager) Create(beanID string) (*Worktree, error) {
+	if err := safepath.ValidateBeanID(beanID); err != nil {
+		return nil, fmt.Errorf("invalid bean ID for worktree: %w", err)
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -195,6 +201,10 @@ func (m *Manager) Create(beanID string) (*Worktree, error) {
 // even when the worktree was created from a different repo root/workspace.
 // If the worktree directory is already gone (stale entry), it prunes instead.
 func (m *Manager) Remove(beanID string) error {
+	if err := safepath.ValidateBeanID(beanID); err != nil {
+		return fmt.Errorf("invalid bean ID for worktree removal: %w", err)
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -267,6 +277,7 @@ func (m *Manager) findWorktreePath(beanID string) (string, error) {
 
 // worktreePath returns the path for a worktree associated with a bean.
 // Worktrees are stored inside the .beans/.worktrees/ directory.
+// Callers must validate beanID with safepath.ValidateBeanID before calling this.
 func (m *Manager) worktreePath(beanID string) string {
 	return filepath.Join(m.beansDir, ".worktrees", beanID)
 }

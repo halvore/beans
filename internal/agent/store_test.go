@@ -104,7 +104,8 @@ func TestStoreSkipsMalformedLines(t *testing.T) {
 	beanID := "bean-bad"
 
 	// Write a valid message, then garbage, then another valid message
-	f, _ := os.Create(s.path(beanID))
+	p, _ := s.path(beanID)
+	f, _ := os.Create(p)
 	f.WriteString(`{"type":"message","role":"user","content":"hello"}` + "\n")
 	f.WriteString("not json\n")
 	f.WriteString(`{"type":"message","role":"assistant","content":"world"}` + "\n")
@@ -149,6 +150,32 @@ func TestToolMessagePersistsWithSummary(t *testing.T) {
 	}
 	if msgs[3].Content != "Glob: **/main.go" {
 		t.Errorf("tool msg[3] = %q, want %q", msgs[3].Content, "Glob: **/main.go")
+	}
+}
+
+func TestStoreRejectsPathTraversal(t *testing.T) {
+	dir := t.TempDir()
+	s, err := newStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	malicious := []string{
+		"../../../etc/passwd",
+		"bean/evil",
+		"",
+	}
+	for _, id := range malicious {
+		_, _, err := s.load(id)
+		if err == nil {
+			t.Errorf("load(%q) should have failed", id)
+		}
+		if err := s.appendMessage(id, Message{Role: RoleUser, Content: "x"}); err == nil {
+			t.Errorf("appendMessage(%q) should have failed", id)
+		}
+		if err := s.clear(id); err == nil {
+			t.Errorf("clear(%q) should have failed", id)
+		}
 	}
 }
 

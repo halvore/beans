@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/hmans/beans/pkg/safepath"
 )
 
 // store handles JSONL persistence for agent conversations.
@@ -34,7 +36,10 @@ func newStore(beansDir string) (*store, error) {
 
 // load reads the JSONL file for a bean and returns the messages and session ID.
 func (s *store) load(beanID string) ([]Message, string, error) {
-	path := s.path(beanID)
+	path, err := s.path(beanID)
+	if err != nil {
+		return nil, "", err
+	}
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return nil, "", nil
@@ -95,7 +100,11 @@ func (s *store) appendEntry(beanID string, e entry) error {
 	}
 	data = append(data, '\n')
 
-	f, err := os.OpenFile(s.path(beanID), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	path, err := s.path(beanID)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("open conversation file for append: %w", err)
 	}
@@ -107,7 +116,11 @@ func (s *store) appendEntry(beanID string, e entry) error {
 
 // clear deletes the JSONL file for a bean, removing all persisted conversation history.
 func (s *store) clear(beanID string) error {
-	err := os.Remove(s.path(beanID))
+	path, err := s.path(beanID)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(path)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -115,6 +128,10 @@ func (s *store) clear(beanID string) error {
 }
 
 // path returns the JSONL file path for a bean.
-func (s *store) path(beanID string) string {
-	return filepath.Join(s.dir, beanID+".jsonl")
+// Returns an error if the beanID would cause path traversal.
+func (s *store) path(beanID string) (string, error) {
+	if err := safepath.ValidateBeanID(beanID); err != nil {
+		return "", fmt.Errorf("invalid bean ID for conversation path: %w", err)
+	}
+	return safepath.SafeJoin(s.dir, beanID+".jsonl")
 }

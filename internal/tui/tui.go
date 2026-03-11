@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hmans/beans/pkg/beancore"
 	"github.com/hmans/beans/pkg/config"
+	"github.com/hmans/beans/pkg/safepath"
 	"github.com/hmans/beans/internal/graph"
 	"github.com/hmans/beans/internal/graph/model"
 )
@@ -476,7 +476,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case openEditorMsg:
 		// Launch editor for the bean file
 		editor := getEditor()
-		fullPath := filepath.Join(a.core.Root(), msg.beanPath)
+		fullPath, err := safepath.SafeJoin(a.core.Root(), msg.beanPath)
+		if err != nil {
+			a.list.statusMessage = fmt.Sprintf("unsafe bean path: %v", err)
+			return a, nil
+		}
 
 		// Record the bean ID and file mod time before editing
 		a.editingBeanID = msg.beanID
@@ -493,7 +497,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Editor closed - check if file was modified and update updated_at if so
 		if a.editingBeanID != "" {
 			if b, err := a.core.Get(a.editingBeanID); err == nil {
-				fullPath := filepath.Join(a.core.Root(), b.Path)
+				fullPath, pathErr := safepath.SafeJoin(a.core.Root(), b.Path)
+				if pathErr != nil {
+					break
+				}
 				if info, err := os.Stat(fullPath); err == nil {
 					if info.ModTime().After(a.editingBeanModTime) {
 						// File was modified - reload from disk first to get user's changes,

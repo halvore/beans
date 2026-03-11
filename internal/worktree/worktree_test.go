@@ -363,3 +363,32 @@ func TestSubscription(t *testing.T) {
 		t.Error("expected notification after Remove")
 	}
 }
+
+func TestCreateRejectsPathTraversal(t *testing.T) {
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir, "")
+
+	malicious := []string{
+		"../../../etc/passwd",
+		"bean/evil",
+		"bean..evil",
+		"",
+		"bean evil",
+	}
+	for _, id := range malicious {
+		_, err := mgr.Create(id)
+		if err == nil {
+			t.Errorf("Create(%q) should have failed but didn't", id)
+		}
+	}
+}
+
+func TestRemoveRejectsPathTraversal(t *testing.T) {
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir, "")
+
+	err := mgr.Remove("../../../etc/passwd")
+	if err == nil {
+		t.Error("Remove with path traversal should have failed")
+	}
+}
