@@ -262,7 +262,7 @@ export async function renderMarkdown(content: string): Promise<string> {
 
   if (browser) {
     return DOMPurify.sanitize(html, {
-      ADD_ATTR: ['data-bean-id']
+      ADD_ATTR: ['data-bean-id', 'target', 'rel']
     });
   }
 
