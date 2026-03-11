@@ -15,8 +15,8 @@ worktree:
     # Git ref to use as the base for new worktree branches (default: origin/main)
     base_ref: origin/main
 agent:
-    # Default permission mode for agent sessions (act, plan)
-    default_permission_mode: act
+    # Default mode for agent sessions (act, plan)
+    default_mode: act
 server:
     # Port for the web UI (used by `beans-serve`)
     port: 8080

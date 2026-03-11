@@ -90,10 +90,10 @@ type WorktreeConfig struct {
 
 // AgentConfig defines settings for agent sessions.
 type AgentConfig struct {
-	// DefaultPermissionMode is the default mode for new agent sessions.
+	// DefaultMode is the default mode for new agent sessions.
 	// Valid values: "act" (fully autonomous), "plan" (read-only).
 	// Default: "act"
-	DefaultPermissionMode PermissionMode `yaml:"default_permission_mode,omitempty"`
+	DefaultMode PermissionMode `yaml:"default_mode,omitempty"`
 }
 
 // ServerConfig defines settings for the web server.
@@ -140,7 +140,7 @@ func Default() *Config {
 			BaseRef: DefaultWorktreeBaseRef,
 		},
 		Agent: AgentConfig{
-			DefaultPermissionMode: PermissionModeAct,
+			DefaultMode: PermissionModeAct,
 		},
 		Server: ServerConfig{
 			Port: DefaultServerPort,
@@ -363,10 +363,10 @@ func (c *Config) toYAMLNode() *yaml.Node {
 
 	// Build the agent mapping
 	agentMapping := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
-	if c.Agent.DefaultPermissionMode != "" {
-		key := strNode("default_permission_mode")
+	if c.Agent.DefaultMode != "" {
+		key := strNode("default_mode")
 		key.HeadComment = "Default mode for agent sessions (act, plan)"
-		agentMapping.Content = append(agentMapping.Content, key, strNode(string(c.Agent.DefaultPermissionMode)))
+		agentMapping.Content = append(agentMapping.Content, key, strNode(string(c.Agent.DefaultMode)))
 	}
 
 	// Build the server mapping
@@ -594,12 +594,12 @@ func (c *Config) GetWorktreeBaseRef() string {
 	return c.Worktree.BaseRef
 }
 
-// GetDefaultPermissionMode returns the configured default permission mode for agent sessions.
+// GetDefaultMode returns the configured default permission mode for agent sessions.
 // Returns "act" if not set or invalid. Also accepts "yolo" as a backwards-compatible alias.
-func (c *Config) GetDefaultPermissionMode() PermissionMode {
-	switch c.Agent.DefaultPermissionMode {
+func (c *Config) GetDefaultMode() PermissionMode {
+	switch c.Agent.DefaultMode {
 	case PermissionModeAct, PermissionModePlan:
-		return c.Agent.DefaultPermissionMode
+		return c.Agent.DefaultMode
 	case "yolo":
 		return PermissionModeAct // backwards-compatible alias
 	default:

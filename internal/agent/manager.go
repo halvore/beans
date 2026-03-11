@@ -9,12 +9,12 @@ import (
 // for the given beanID. Return "" to skip injection.
 type ContextProvider func(beanID string) string
 
-// DefaultPermissionMode controls the initial permission mode for new agent sessions.
-type DefaultPermissionMode string
+// DefaultMode controls the initial mode for new agent sessions.
+type DefaultMode string
 
 const (
-	DefaultModeAct DefaultPermissionMode = "act"
-	DefaultModePlan DefaultPermissionMode = "plan"
+	DefaultModeAct DefaultMode = "act"
+	DefaultModePlan DefaultMode = "plan"
 )
 
 // Manager manages agent sessions — one per worktree (keyed by beanID).
@@ -25,7 +25,7 @@ type Manager struct {
 	processes             map[string]*runningProcess
 	store                 *store // JSONL persistence (nil if no beansDir)
 	contextProvider       ContextProvider
-	defaultPermissionMode DefaultPermissionMode
+	defaultMode DefaultMode
 
 	subMu       sync.Mutex
 	subscribers map[string][]chan struct{}
@@ -38,17 +38,17 @@ type Manager struct {
 // If beansDir is non-empty, conversations are persisted to .beans/conversations/.
 // permissionMode controls the default mode for new sessions ("act", "plan").
 // If empty, defaults to "act".
-func NewManager(beansDir string, contextProvider ContextProvider, permissionMode ...DefaultPermissionMode) *Manager {
+func NewManager(beansDir string, contextProvider ContextProvider, defaultMode ...DefaultMode) *Manager {
 	mode := DefaultModeAct
-	if len(permissionMode) > 0 && permissionMode[0] != "" {
-		mode = permissionMode[0]
+	if len(defaultMode) > 0 && defaultMode[0] != "" {
+		mode = defaultMode[0]
 	}
 	m := &Manager{
 		sessions:              make(map[string]*Session),
 		processes:             make(map[string]*runningProcess),
 		subscribers:           make(map[string][]chan struct{}),
 		contextProvider:       contextProvider,
-		defaultPermissionMode: mode,
+		defaultMode: mode,
 	}
 
 	if beansDir != "" {
@@ -388,7 +388,7 @@ func (m *Manager) Shutdown() {
 
 // applyDefaultMode sets ActMode and PlanMode on a session based on the manager's default.
 func (m *Manager) applyDefaultMode(s *Session) {
-	switch m.defaultPermissionMode {
+	switch m.defaultMode {
 	case DefaultModePlan:
 		s.PlanMode = true
 		s.ActMode = false

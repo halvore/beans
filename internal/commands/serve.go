@@ -110,7 +110,7 @@ func runServer(port int) error {
 			fmt.Fprintf(&sb, "\nDescription:\n%s", b.Body)
 		}
 		return sb.String()
-	}, agent.DefaultPermissionMode(cfg.GetDefaultPermissionMode()))
+	}, agent.DefaultMode(cfg.GetDefaultMode()))
 	defer agentMgr.Shutdown()
 
 	// Create GraphQL server with explicit transports

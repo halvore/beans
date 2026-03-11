@@ -864,7 +864,7 @@ func TestSaveIncludesComments(t *testing.T) {
 	}
 }
 
-func TestGetDefaultPermissionMode(t *testing.T) {
+func TestGetDefaultMode(t *testing.T) {
 	tests := []struct {
 		name     string
 		mode     PermissionMode
@@ -880,10 +880,10 @@ func TestGetDefaultPermissionMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := Default()
-			cfg.Agent.DefaultPermissionMode = tt.mode
-			got := cfg.GetDefaultPermissionMode()
+			cfg.Agent.DefaultMode = tt.mode
+			got := cfg.GetDefaultMode()
 			if got != tt.expected {
-				t.Errorf("GetDefaultPermissionMode() = %q, want %q", got, tt.expected)
+				t.Errorf("GetDefaultMode() = %q, want %q", got, tt.expected)
 			}
 		})
 	}
@@ -919,7 +919,7 @@ func TestLoadAgentPermissionMode(t *testing.T) {
 	configYAML := `beans:
   prefix: test-
 agent:
-  default_permission_mode: plan
+  default_mode: plan
 `
 	if err := os.WriteFile(configPath, []byte(configYAML), 0644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -930,8 +930,8 @@ agent:
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if cfg.GetDefaultPermissionMode() != PermissionModePlan {
-		t.Errorf("GetDefaultPermissionMode() = %q, want %q", cfg.GetDefaultPermissionMode(), PermissionModePlan)
+	if cfg.GetDefaultMode() != PermissionModePlan {
+		t.Errorf("GetDefaultMode() = %q, want %q", cfg.GetDefaultMode(), PermissionModePlan)
 	}
 }
 
@@ -939,7 +939,7 @@ func TestSaveIncludesAgentSection(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := DefaultWithPrefix("test-")
-	cfg.Agent.DefaultPermissionMode = PermissionModePlan
+	cfg.Agent.DefaultMode = PermissionModePlan
 	cfg.SetConfigDir(tmpDir)
 
 	if err := cfg.Save(tmpDir); err != nil {
@@ -955,8 +955,8 @@ func TestSaveIncludesAgentSection(t *testing.T) {
 	if !strings.Contains(content, "agent:") {
 		t.Error("expected agent section in saved config")
 	}
-	if !strings.Contains(content, "default_permission_mode: plan") {
-		t.Error("expected default_permission_mode: plan in saved config")
+	if !strings.Contains(content, "default_mode: plan") {
+		t.Error("expected default_mode: plan in saved config")
 	}
 }
 
@@ -964,7 +964,7 @@ func TestSaveOmitsEmptyAgentSection(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := DefaultWithPrefix("test-")
-	cfg.Agent.DefaultPermissionMode = "" // explicitly clear
+	cfg.Agent.DefaultMode = "" // explicitly clear
 	cfg.SetConfigDir(tmpDir)
 
 	if err := cfg.Save(tmpDir); err != nil {
@@ -1000,8 +1000,8 @@ func TestDefaultIncludesAgentSection(t *testing.T) {
 	if !strings.Contains(content, "agent:") {
 		t.Error("expected default config to include agent section")
 	}
-	if !strings.Contains(content, "default_permission_mode: act") {
-		t.Error("expected default config to include default_permission_mode: act")
+	if !strings.Contains(content, "default_mode: act") {
+		t.Error("expected default config to include default_mode: act")
 	}
 }
 
