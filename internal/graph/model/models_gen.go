@@ -53,6 +53,26 @@ type AgentSession struct {
 	SubagentActivities []*SubagentActivity `json:"subagentActivities"`
 }
 
+// A selectable option within an AskUserQuestion
+type AskUserOption struct {
+	// Display text for this option
+	Label string `json:"label"`
+	// Explanation of what this option means
+	Description string `json:"description"`
+}
+
+// A structured question with selectable options from the AskUserQuestion tool
+type AskUserQuestion struct {
+	// Short label displayed as a chip/tag
+	Header string `json:"header"`
+	// The full question text
+	Question string `json:"question"`
+	// Whether multiple options can be selected
+	MultiSelect bool `json:"multiSelect"`
+	// Available choices
+	Options []*AskUserOption `json:"options"`
+}
+
 // Represents a change to a bean
 type BeanChangeEvent struct {
 	// Type of change that occurred
@@ -182,6 +202,8 @@ type PendingInteraction struct {
 	Type InteractionType `json:"type"`
 	// Plan file content (for EXIT_PLAN only)
 	PlanContent *string `json:"planContent,omitempty"`
+	// Structured questions with selectable options (for ASK_USER only)
+	Questions []*AskUserQuestion `json:"questions,omitempty"`
 }
 
 type Query struct {

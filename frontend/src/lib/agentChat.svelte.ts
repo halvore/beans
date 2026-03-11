@@ -9,9 +9,22 @@ export interface AgentMessage {
 
 export type InteractionType = 'EXIT_PLAN' | 'ENTER_PLAN' | 'ASK_USER';
 
+export interface AskUserOption {
+  label: string;
+  description: string;
+}
+
+export interface AskUserQuestionData {
+  header: string;
+  question: string;
+  multiSelect: boolean;
+  options: AskUserOption[];
+}
+
 export interface PendingInteraction {
   type: InteractionType;
   planContent: string | null;
+  questions: AskUserQuestionData[] | null;
 }
 
 export interface SubagentActivity {
@@ -52,6 +65,15 @@ const AGENT_SESSION_SUBSCRIPTION = gql`
       pendingInteraction {
         type
         planContent
+        questions {
+          header
+          question
+          multiSelect
+          options {
+            label
+            description
+          }
+        }
       }
       workDir
       subagentActivities {

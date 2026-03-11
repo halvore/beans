@@ -75,6 +75,18 @@ type ComplexityRoot struct {
 		WorkDir            func(childComplexity int) int
 	}
 
+	AskUserOption struct {
+		Description func(childComplexity int) int
+		Label       func(childComplexity int) int
+	}
+
+	AskUserQuestion struct {
+		Header      func(childComplexity int) int
+		MultiSelect func(childComplexity int) int
+		Options     func(childComplexity int) int
+		Question    func(childComplexity int) int
+	}
+
 	Bean struct {
 		BlockedBy          func(childComplexity int, filter *model.BeanFilter) int
 		BlockedByIds       func(childComplexity int) int
@@ -135,6 +147,7 @@ type ComplexityRoot struct {
 
 	PendingInteraction struct {
 		PlanContent func(childComplexity int) int
+		Questions   func(childComplexity int) int
 		Type        func(childComplexity int) int
 	}
 
@@ -322,6 +335,44 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.AgentSession.WorkDir(childComplexity), true
+
+	case "AskUserOption.description":
+		if e.complexity.AskUserOption.Description == nil {
+			break
+		}
+
+		return e.complexity.AskUserOption.Description(childComplexity), true
+	case "AskUserOption.label":
+		if e.complexity.AskUserOption.Label == nil {
+			break
+		}
+
+		return e.complexity.AskUserOption.Label(childComplexity), true
+
+	case "AskUserQuestion.header":
+		if e.complexity.AskUserQuestion.Header == nil {
+			break
+		}
+
+		return e.complexity.AskUserQuestion.Header(childComplexity), true
+	case "AskUserQuestion.multiSelect":
+		if e.complexity.AskUserQuestion.MultiSelect == nil {
+			break
+		}
+
+		return e.complexity.AskUserQuestion.MultiSelect(childComplexity), true
+	case "AskUserQuestion.options":
+		if e.complexity.AskUserQuestion.Options == nil {
+			break
+		}
+
+		return e.complexity.AskUserQuestion.Options(childComplexity), true
+	case "AskUserQuestion.question":
+		if e.complexity.AskUserQuestion.Question == nil {
+			break
+		}
+
+		return e.complexity.AskUserQuestion.Question(childComplexity), true
 
 	case "Bean.blockedBy":
 		if e.complexity.Bean.BlockedBy == nil {
@@ -704,6 +755,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.PendingInteraction.PlanContent(childComplexity), true
+	case "PendingInteraction.questions":
+		if e.complexity.PendingInteraction.Questions == nil {
+			break
+		}
+
+		return e.complexity.PendingInteraction.Questions(childComplexity), true
 	case "PendingInteraction.type":
 		if e.complexity.PendingInteraction.Type == nil {
 			break
@@ -1783,6 +1840,8 @@ func (ec *executionContext) fieldContext_AgentSession_pendingInteraction(_ conte
 				return ec.fieldContext_PendingInteraction_type(ctx, field)
 			case "planContent":
 				return ec.fieldContext_PendingInteraction_planContent(ctx, field)
+			case "questions":
+				return ec.fieldContext_PendingInteraction_questions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type PendingInteraction", field.Name)
 		},
@@ -1853,6 +1912,186 @@ func (ec *executionContext) fieldContext_AgentSession_subagentActivities(_ conte
 				return ec.fieldContext_SubagentActivity_currentTool(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type SubagentActivity", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AskUserOption_label(ctx context.Context, field graphql.CollectedField, obj *model.AskUserOption) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AskUserOption_label,
+		func(ctx context.Context) (any, error) {
+			return obj.Label, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AskUserOption_label(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AskUserOption",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AskUserOption_description(ctx context.Context, field graphql.CollectedField, obj *model.AskUserOption) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AskUserOption_description,
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AskUserOption_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AskUserOption",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AskUserQuestion_header(ctx context.Context, field graphql.CollectedField, obj *model.AskUserQuestion) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AskUserQuestion_header,
+		func(ctx context.Context) (any, error) {
+			return obj.Header, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AskUserQuestion_header(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AskUserQuestion",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AskUserQuestion_question(ctx context.Context, field graphql.CollectedField, obj *model.AskUserQuestion) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AskUserQuestion_question,
+		func(ctx context.Context) (any, error) {
+			return obj.Question, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AskUserQuestion_question(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AskUserQuestion",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AskUserQuestion_multiSelect(ctx context.Context, field graphql.CollectedField, obj *model.AskUserQuestion) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AskUserQuestion_multiSelect,
+		func(ctx context.Context) (any, error) {
+			return obj.MultiSelect, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AskUserQuestion_multiSelect(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AskUserQuestion",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AskUserQuestion_options(ctx context.Context, field graphql.CollectedField, obj *model.AskUserQuestion) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AskUserQuestion_options,
+		func(ctx context.Context) (any, error) {
+			return obj.Options, nil
+		},
+		nil,
+		ec.marshalNAskUserOption2ᚕᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐAskUserOptionᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AskUserQuestion_options(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AskUserQuestion",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "label":
+				return ec.fieldContext_AskUserOption_label(ctx, field)
+			case "description":
+				return ec.fieldContext_AskUserOption_description(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AskUserOption", field.Name)
 		},
 	}
 	return fc, nil
@@ -4035,6 +4274,45 @@ func (ec *executionContext) fieldContext_PendingInteraction_planContent(_ contex
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PendingInteraction_questions(ctx context.Context, field graphql.CollectedField, obj *model.PendingInteraction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PendingInteraction_questions,
+		func(ctx context.Context) (any, error) {
+			return obj.Questions, nil
+		},
+		nil,
+		ec.marshalOAskUserQuestion2ᚕᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐAskUserQuestionᚄ,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_PendingInteraction_questions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PendingInteraction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "header":
+				return ec.fieldContext_AskUserQuestion_header(ctx, field)
+			case "question":
+				return ec.fieldContext_AskUserQuestion_question(ctx, field)
+			case "multiSelect":
+				return ec.fieldContext_AskUserQuestion_multiSelect(ctx, field)
+			case "options":
+				return ec.fieldContext_AskUserQuestion_options(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AskUserQuestion", field.Name)
 		},
 	}
 	return fc, nil
@@ -7028,6 +7306,104 @@ func (ec *executionContext) _AgentSession(ctx context.Context, sel ast.Selection
 	return out
 }
 
+var askUserOptionImplementors = []string{"AskUserOption"}
+
+func (ec *executionContext) _AskUserOption(ctx context.Context, sel ast.SelectionSet, obj *model.AskUserOption) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, askUserOptionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AskUserOption")
+		case "label":
+			out.Values[i] = ec._AskUserOption_label(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "description":
+			out.Values[i] = ec._AskUserOption_description(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var askUserQuestionImplementors = []string{"AskUserQuestion"}
+
+func (ec *executionContext) _AskUserQuestion(ctx context.Context, sel ast.SelectionSet, obj *model.AskUserQuestion) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, askUserQuestionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AskUserQuestion")
+		case "header":
+			out.Values[i] = ec._AskUserQuestion_header(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "question":
+			out.Values[i] = ec._AskUserQuestion_question(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "multiSelect":
+			out.Values[i] = ec._AskUserQuestion_multiSelect(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "options":
+			out.Values[i] = ec._AskUserQuestion_options(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var beanImplementors = []string{"Bean"}
 
 func (ec *executionContext) _Bean(ctx context.Context, sel ast.SelectionSet, obj *bean.Bean) graphql.Marshaler {
@@ -7713,6 +8089,8 @@ func (ec *executionContext) _PendingInteraction(ctx context.Context, sel ast.Sel
 			}
 		case "planContent":
 			out.Values[i] = ec._PendingInteraction_planContent(ctx, field, obj)
+		case "questions":
+			out.Values[i] = ec._PendingInteraction_questions(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8498,6 +8876,70 @@ func (ec *executionContext) marshalNAgentSessionStatus2githubᚗcomᚋhmansᚋbe
 	return v
 }
 
+func (ec *executionContext) marshalNAskUserOption2ᚕᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐAskUserOptionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.AskUserOption) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNAskUserOption2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐAskUserOption(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNAskUserOption2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐAskUserOption(ctx context.Context, sel ast.SelectionSet, v *model.AskUserOption) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AskUserOption(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNAskUserQuestion2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐAskUserQuestion(ctx context.Context, sel ast.SelectionSet, v *model.AskUserQuestion) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AskUserQuestion(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNBean2githubᚗcomᚋhmansᚋbeansᚋpkgᚋbeanᚐBean(ctx context.Context, sel ast.SelectionSet, v bean.Bean) graphql.Marshaler {
 	return ec._Bean(ctx, sel, &v)
 }
@@ -9145,6 +9587,53 @@ func (ec *executionContext) marshalOAgentSession2ᚖgithubᚗcomᚋhmansᚋbeans
 		return graphql.Null
 	}
 	return ec._AgentSession(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOAskUserQuestion2ᚕᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐAskUserQuestionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.AskUserQuestion) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNAskUserQuestion2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐAskUserQuestion(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalOBean2ᚖgithubᚗcomᚋhmansᚋbeansᚋpkgᚋbeanᚐBean(ctx context.Context, sel ast.SelectionSet, v *bean.Bean) graphql.Marshaler {

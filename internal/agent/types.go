@@ -55,11 +55,26 @@ const (
 	InteractionAskUser   InteractionType = "ask_user"
 )
 
+// AskUserOption represents a single selectable option in an AskUserQuestion.
+type AskUserOption struct {
+	Label       string
+	Description string
+}
+
+// AskUserQuestion represents a structured question with selectable options.
+type AskUserQuestion struct {
+	Header      string
+	Question    string
+	MultiSelect bool
+	Options     []AskUserOption
+}
+
 // PendingInteraction represents a blocking tool call that requires user input.
 // For plan/mode interactions, the process has been killed and will resume with --resume.
 type PendingInteraction struct {
 	Type        InteractionType
-	PlanContent string // plan file content (for exit_plan only)
+	PlanContent string             // plan file content (for exit_plan only)
+	Questions   []AskUserQuestion  // structured questions (for ask_user only)
 }
 
 // Session represents an active or idle agent conversation for a worktree.
@@ -108,7 +123,21 @@ func (s *Session) snapshot() Session {
 		PlanMode:           s.PlanMode,
 		ActMode:           s.ActMode,
 		SystemStatus:       s.SystemStatus,
-		PendingInteraction: s.PendingInteraction,
+	}
+	// Deep copy PendingInteraction if it has Questions
+	if s.PendingInteraction != nil {
+		pi := *s.PendingInteraction
+		if len(pi.Questions) > 0 {
+			pi.Questions = make([]AskUserQuestion, len(s.PendingInteraction.Questions))
+			for i, q := range s.PendingInteraction.Questions {
+				pi.Questions[i] = q
+				if len(q.Options) > 0 {
+					pi.Questions[i].Options = make([]AskUserOption, len(q.Options))
+					copy(pi.Questions[i].Options, q.Options)
+				}
+			}
+		}
+		snap.PendingInteraction = &pi
 	}
 	copy(snap.Messages, s.Messages)
 	if len(s.SubagentActivities) > 0 {

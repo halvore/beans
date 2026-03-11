@@ -184,6 +184,7 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 	var toolName string
 	var toolInvIdx int = -1 // index into session.ToolInvocations
 	var pendingToolPersist bool // true when current tool msg hasn't been persisted yet
+	var deferredAskUser bool // true when AskUserQuestion detected, waiting for input to complete
 
 	// Subagent activities are tracked via task_progress events and cleared on eventResult.
 
@@ -218,6 +219,17 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 		ev := parseStreamLine(line)
 		if ev.Type == eventUnknown {
 			log.Printf("[agent:%s] unhandled event: %s", beanID, string(line))
+		}
+
+		// Finalize deferred AskUserQuestion blocking when tool input is complete.
+		// Tool input is complete when we receive any event that isn't a delta.
+		if deferredAskUser && ev.Type != eventToolInputDelta {
+			interaction := &PendingInteraction{Type: InteractionAskUser}
+			if questions := parseAskUserInput(toolInputBuf.String()); questions != nil {
+				interaction.Questions = questions
+			}
+			m.handleBlockingTool(beanID, interaction)
+			deferredAskUser = false
 		}
 
 		switch ev.Type {
@@ -263,7 +275,13 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 			sess := m.sessions[beanID]
 			m.mu.RUnlock()
 			if interaction := blockingInteraction(ev.ToolName, sess); interaction != nil {
-				m.handleBlockingTool(beanID, interaction)
+				if interaction.Type == InteractionAskUser {
+					// Defer blocking — we need to accumulate tool input first
+					// to extract structured question data.
+					deferredAskUser = true
+				} else {
+					m.handleBlockingTool(beanID, interaction)
+				}
 			}
 
 			// No subagent clearing here — activities are only cleared on eventResult
@@ -440,6 +458,15 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 			m.notify(beanID)
 
 		}
+	}
+
+	// Finalize deferred AskUserQuestion if stream ended before input completed
+	if deferredAskUser {
+		interaction := &PendingInteraction{Type: InteractionAskUser}
+		if questions := parseAskUserInput(toolInputBuf.String()); questions != nil {
+			interaction.Questions = questions
+		}
+		m.handleBlockingTool(beanID, interaction)
 	}
 
 	// Flush any remaining pending tool message at end of stream

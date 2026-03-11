@@ -475,6 +475,32 @@ type PendingInteraction {
   type: InteractionType!
   "Plan file content (for EXIT_PLAN only)"
   planContent: String
+  "Structured questions with selectable options (for ASK_USER only)"
+  questions: [AskUserQuestion!]
+}
+
+"""
+A structured question with selectable options from the AskUserQuestion tool
+"""
+type AskUserQuestion {
+  "Short label displayed as a chip/tag"
+  header: String!
+  "The full question text"
+  question: String!
+  "Whether multiple options can be selected"
+  multiSelect: Boolean!
+  "Available choices"
+  options: [AskUserOption!]!
+}
+
+"""
+A selectable option within an AskUserQuestion
+"""
+type AskUserOption {
+  "Display text for this option"
+  label: String!
+  "Explanation of what this option means"
+  description: String!
 }
 
 """

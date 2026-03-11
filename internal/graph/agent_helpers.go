@@ -56,7 +56,20 @@ func agentSessionToModel(s *agent.Session) *model.AgentSession {
 		if s.PendingInteraction.PlanContent != "" {
 			planContent = &s.PendingInteraction.PlanContent
 		}
-		pending = &model.PendingInteraction{Type: itype, PlanContent: planContent}
+		var questions []*model.AskUserQuestion
+		for _, q := range s.PendingInteraction.Questions {
+			opts := make([]*model.AskUserOption, len(q.Options))
+			for j, o := range q.Options {
+				opts[j] = &model.AskUserOption{Label: o.Label, Description: o.Description}
+			}
+			questions = append(questions, &model.AskUserQuestion{
+				Header:      q.Header,
+				Question:    q.Question,
+				MultiSelect: q.MultiSelect,
+				Options:     opts,
+			})
+		}
+		pending = &model.PendingInteraction{Type: itype, PlanContent: planContent, Questions: questions}
 	}
 
 	var sysStatus *string

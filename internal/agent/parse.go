@@ -226,6 +226,40 @@ func parseInnerEvent(inner *innerEvent) parsedEvent {
 	return parsedEvent{Type: eventUnknown}
 }
 
+// parseAskUserInput parses the accumulated tool input JSON from an AskUserQuestion
+// tool call and returns structured question data. Returns nil if the JSON is
+// malformed or contains no questions.
+func parseAskUserInput(inputJSON string) []AskUserQuestion {
+	var raw struct {
+		Questions []struct {
+			Header      string `json:"header"`
+			Question    string `json:"question"`
+			MultiSelect bool   `json:"multiSelect"`
+			Options     []struct {
+				Label       string `json:"label"`
+				Description string `json:"description"`
+			} `json:"options"`
+		} `json:"questions"`
+	}
+	if err := json.Unmarshal([]byte(inputJSON), &raw); err != nil || len(raw.Questions) == 0 {
+		return nil
+	}
+	questions := make([]AskUserQuestion, len(raw.Questions))
+	for i, rq := range raw.Questions {
+		opts := make([]AskUserOption, len(rq.Options))
+		for j, ro := range rq.Options {
+			opts[j] = AskUserOption{Label: ro.Label, Description: ro.Description}
+		}
+		questions[i] = AskUserQuestion{
+			Header:      rq.Header,
+			Question:    rq.Question,
+			MultiSelect: rq.MultiSelect,
+			Options:     opts,
+		}
+	}
+	return questions
+}
+
 // toolInputSummaryFields are the JSON fields to look for (in order) when
 // extracting a human-readable summary from tool input.
 var toolInputSummaryFields = []string{

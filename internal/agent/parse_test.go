@@ -244,3 +244,139 @@ func TestExtractToolSummary(t *testing.T) {
 		})
 	}
 }
+
+func TestParseAskUserInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []AskUserQuestion
+	}{
+		{
+			name: "single question with options",
+			input: `{
+				"questions": [{
+					"header": "Approach",
+					"question": "Which library should we use?",
+					"multiSelect": false,
+					"options": [
+						{"label": "Option A", "description": "Fast but complex"},
+						{"label": "Option B", "description": "Simple but slower"}
+					]
+				}]
+			}`,
+			want: []AskUserQuestion{
+				{
+					Header:      "Approach",
+					Question:    "Which library should we use?",
+					MultiSelect: false,
+					Options: []AskUserOption{
+						{Label: "Option A", Description: "Fast but complex"},
+						{Label: "Option B", Description: "Simple but slower"},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple questions with multiSelect",
+			input: `{
+				"questions": [
+					{
+						"header": "Auth",
+						"question": "Which auth method?",
+						"multiSelect": false,
+						"options": [
+							{"label": "JWT", "description": "Token-based"},
+							{"label": "Session", "description": "Cookie-based"}
+						]
+					},
+					{
+						"header": "Features",
+						"question": "Which features to enable?",
+						"multiSelect": true,
+						"options": [
+							{"label": "Logging", "description": "Request logging"},
+							{"label": "CORS", "description": "Cross-origin support"},
+							{"label": "Rate limit", "description": "Throttle requests"}
+						]
+					}
+				]
+			}`,
+			want: []AskUserQuestion{
+				{
+					Header: "Auth", Question: "Which auth method?",
+					Options: []AskUserOption{
+						{Label: "JWT", Description: "Token-based"},
+						{Label: "Session", Description: "Cookie-based"},
+					},
+				},
+				{
+					Header: "Features", Question: "Which features to enable?", MultiSelect: true,
+					Options: []AskUserOption{
+						{Label: "Logging", Description: "Request logging"},
+						{Label: "CORS", Description: "Cross-origin support"},
+						{Label: "Rate limit", Description: "Throttle requests"},
+					},
+				},
+			},
+		},
+		{
+			name:  "malformed JSON",
+			input: `not json`,
+			want:  nil,
+		},
+		{
+			name:  "empty questions array",
+			input: `{"questions": []}`,
+			want:  nil,
+		},
+		{
+			name:  "missing questions field",
+			input: `{"foo": "bar"}`,
+			want:  nil,
+		},
+		{
+			name:  "incomplete JSON from partial stream",
+			input: `{"questions": [{"header": "Test"`,
+			want:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseAskUserInput(tt.input)
+			if tt.want == nil {
+				if got != nil {
+					t.Errorf("expected nil, got %v", got)
+				}
+				return
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d questions, want %d", len(got), len(tt.want))
+			}
+			for i, q := range got {
+				w := tt.want[i]
+				if q.Header != w.Header {
+					t.Errorf("q[%d].Header = %q, want %q", i, q.Header, w.Header)
+				}
+				if q.Question != w.Question {
+					t.Errorf("q[%d].Question = %q, want %q", i, q.Question, w.Question)
+				}
+				if q.MultiSelect != w.MultiSelect {
+					t.Errorf("q[%d].MultiSelect = %v, want %v", i, q.MultiSelect, w.MultiSelect)
+				}
+				if len(q.Options) != len(w.Options) {
+					t.Fatalf("q[%d] got %d options, want %d", i, len(q.Options), len(w.Options))
+				}
+				for j, o := range q.Options {
+					wo := w.Options[j]
+					if o.Label != wo.Label {
+						t.Errorf("q[%d].Options[%d].Label = %q, want %q", i, j, o.Label, wo.Label)
+					}
+					if o.Description != wo.Description {
+						t.Errorf("q[%d].Options[%d].Description = %q, want %q", i, j, o.Description, wo.Description)
+					}
+				}
+			}
+		})
+	}
+}
