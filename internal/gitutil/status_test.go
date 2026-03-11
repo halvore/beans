@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -177,6 +178,70 @@ func TestFileChanges_Empty(t *testing.T) {
 
 	if len(changes) != 0 {
 		t.Fatalf("expected 0 changes, got %d: %+v", len(changes), changes)
+	}
+}
+
+func TestFileDiff_Unstaged(t *testing.T) {
+	dir := initStatusTestRepo(t)
+
+	// Modify tracked file
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test\nline 2\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	diff, err := FileDiff(dir, "README.md", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff == "" {
+		t.Fatal("expected non-empty diff")
+	}
+	if !strings.Contains(diff, "+line 2") {
+		t.Errorf("expected diff to contain '+line 2', got:\n%s", diff)
+	}
+}
+
+func TestFileDiff_Staged(t *testing.T) {
+	dir := initStatusTestRepo(t)
+
+	// Create and stage a new file
+	if err := os.WriteFile(filepath.Join(dir, "new.txt"), []byte("hello\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "new.txt")
+
+	diff, err := FileDiff(dir, "new.txt", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff == "" {
+		t.Fatal("expected non-empty diff")
+	}
+	if !strings.Contains(diff, "+hello") {
+		t.Errorf("expected diff to contain '+hello', got:\n%s", diff)
+	}
+}
+
+func TestFileDiff_Untracked(t *testing.T) {
+	dir := initStatusTestRepo(t)
+
+	// Create untracked file
+	if err := os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("data\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	diff, err := FileDiff(dir, "untracked.txt", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff == "" {
+		t.Fatal("expected non-empty diff for untracked file")
+	}
+	if !strings.Contains(diff, "+data") {
+		t.Errorf("expected diff to contain '+data', got:\n%s", diff)
 	}
 }
 

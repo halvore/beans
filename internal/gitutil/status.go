@@ -122,6 +122,49 @@ func HasChanges(dir string) bool {
 	return len(changes) > 0
 }
 
+// FileDiff returns the unified diff for a specific file.
+// If staged is true, shows the staged diff (--cached); otherwise shows the working tree diff.
+// For untracked files, it shows the full file content as an added diff.
+func FileDiff(dir, filePath string, staged bool) (string, error) {
+	if staged {
+		// Staged diff
+		cmd := exec.Command("git", "-C", dir, "diff", "--cached", "--", filePath)
+		out, err := cmd.Output()
+		if err != nil {
+			return "", err
+		}
+		return string(out), nil
+	}
+
+	// Check if the file is untracked
+	cmd := exec.Command("git", "-C", dir, "ls-files", "--others", "--exclude-standard", "--", filePath)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(string(out)) != "" {
+		// Untracked file — show full content as a diff-like output
+		cmd = exec.Command("git", "-C", dir, "diff", "--no-index", "/dev/null", filePath)
+		out, err = cmd.Output()
+		// git diff --no-index exits with 1 when files differ (which they always will)
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				return string(out), nil
+			}
+			return "", err
+		}
+		return string(out), nil
+	}
+
+	// Unstaged diff for tracked file
+	cmd = exec.Command("git", "-C", dir, "diff", "--", filePath)
+	out, err = cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
 // untrackedFiles returns untracked files via git ls-files.
 func untrackedFiles(dir string) ([]FileChange, error) {
 	cmd := exec.Command("git", "-C", dir, "ls-files", "--others", "--exclude-standard")

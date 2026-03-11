@@ -196,6 +196,19 @@ button:disabled {
   @apply my-3 rounded;
 }
 
+/* ── Diff line styling ──────────────────────── */
+.diff-add {
+  @apply bg-green-500/15 text-success;
+}
+
+.diff-del {
+  @apply bg-red-500/15 text-danger;
+}
+
+.diff-hunk {
+  @apply text-accent;
+}
+
 /* ── Light palette (default) ─────────────────── */
 :root {
   color-scheme: light dark;

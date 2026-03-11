@@ -9,6 +9,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/hmans/beans/internal/agent"
 	"github.com/hmans/beans/internal/gitutil"
@@ -856,6 +858,39 @@ func (r *queryResolver) FileChanges(ctx context.Context, path *string) ([]*model
 		}
 	}
 	return result, nil
+}
+
+// FileDiff is the resolver for the fileDiff field.
+func (r *queryResolver) FileDiff(ctx context.Context, filePath string, staged bool, path *string) (string, error) {
+	// Sanitize filePath to prevent path traversal
+	cleaned := filepath.Clean(filePath)
+	if filepath.IsAbs(cleaned) || strings.HasPrefix(cleaned, "..") {
+		return "", fmt.Errorf("invalid file path: %s", filePath)
+	}
+
+	dir := r.ProjectRoot
+	if path != nil && *path != "" {
+		// Validate the path is a known worktree to prevent arbitrary filesystem access
+		if r.WorktreeMgr != nil {
+			wts, err := r.WorktreeMgr.List()
+			if err != nil {
+				return "", err
+			}
+			valid := false
+			for _, wt := range wts {
+				if wt.Path == *path {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return "", fmt.Errorf("unknown worktree path: %s", *path)
+			}
+		}
+		dir = *path
+	}
+
+	return gitutil.FileDiff(dir, filePath, staged)
 }
 
 // HasDirtyBeans is the resolver for the hasDirtyBeans field.
