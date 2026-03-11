@@ -2,13 +2,12 @@
   import type { Bean } from '$lib/beans.svelte';
   import { beansStore } from '$lib/beans.svelte';
   import { worktreeStore } from '$lib/worktrees.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import { renderMarkdown } from '$lib/markdown';
   import { statusColors, typeColors, priorityColors } from '$lib/styles';
   import { client } from '$lib/graphqlClient';
   import { gql } from 'urql';
   import BeanCard from './BeanCard.svelte';
   import ConfirmModal from './ConfirmModal.svelte';
+  import RenderedMarkdown from './RenderedMarkdown.svelte';
 
   interface Props {
     bean: Bean;
@@ -24,19 +23,6 @@
     bean.blockingIds.map((id) => beansStore.get(id)).filter((b): b is Bean => b !== undefined)
   );
   const blockedBy = $derived(beansStore.blockedBy(bean.id));
-
-  let renderedBody = $state('');
-
-  $effect(() => {
-    const body = bean.body;
-    if (body) {
-      renderMarkdown(body).then((html) => {
-        renderedBody = html;
-      });
-    } else {
-      renderedBody = '';
-    }
-  });
 
   let copied = $state(false);
 
@@ -94,13 +80,6 @@
     removingWorktree = false;
   }
 
-  function handleBeanLinkClick(e: MouseEvent) {
-    const target = (e.target as HTMLElement).closest<HTMLElement>('[data-bean-id]');
-    if (!target) return;
-    e.preventDefault();
-    const linkedBean = beansStore.get(target.dataset.beanId!);
-    if (linkedBean) ui.selectBean(linkedBean);
-  }
 </script>
 
 <div class="h-full overflow-auto p-6">
@@ -300,13 +279,9 @@
 
   <!-- Body -->
   {#if bean.body}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="mb-6" onclick={handleBeanLinkClick}>
+    <div class="mb-6">
       <h2 class="mb-2 text-xs font-semibold text-text-muted uppercase">Description</h2>
-      <div class="bean-body prose max-w-none">
-        {@html renderedBody}
-      </div>
+      <RenderedMarkdown content={bean.body} class="bean-body prose max-w-none" />
     </div>
   {/if}
 
