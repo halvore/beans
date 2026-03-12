@@ -87,7 +87,15 @@ class WorktreeStore {
       return null;
     }
 
-    return result.data?.createWorktree ?? null;
+    const wt = result.data?.createWorktree ?? null;
+
+    // Eagerly add to local state so the layout guard doesn't redirect
+    // back to planning before the subscription delivers the update.
+    if (wt && !this.worktrees.some((w) => w.id === wt.id)) {
+      this.worktrees = [...this.worktrees, wt];
+    }
+
+    return wt;
   }
 
   async removeWorktree(id: string): Promise<boolean> {
