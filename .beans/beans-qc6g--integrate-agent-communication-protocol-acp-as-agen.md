@@ -3,10 +3,12 @@
 title: Integrate Agent Communication Protocol (ACP) as agent communication layer
 status: draft
 type: feature
+priority: normal
 tags:
     - idea
 created_at: 2026-03-10T11:22:05Z
-updated_at: 2026-03-10T11:22:05Z
+updated_at: 2026-03-12T07:33:29Z
+order: zw
 ---
 
 Add ACP (Agent Communication Protocol) support to beans-serve, enabling standardized REST+SSE communication with agents alongside the existing GraphQL API.

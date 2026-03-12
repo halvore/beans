@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-11T22:33:29Z
-updated_at: 2026-03-12T07:13:56Z
+updated_at: 2026-03-12T07:33:29Z
+order: zzV
 ---
 
 When the agent uses the Write tool in the beans-serve UI, display a collapsible unified diff of the change inline in the agent chat messages.

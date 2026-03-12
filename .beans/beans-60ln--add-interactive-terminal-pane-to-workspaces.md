@@ -5,7 +5,8 @@ status: completed
 type: feature
 priority: normal
 created_at: 2026-03-12T07:23:31Z
-updated_at: 2026-03-12T07:32:14Z
+updated_at: 2026-03-12T07:33:29Z
+order: zz
 ---
 
 Add a toggleable terminal pane (interactive PTY) to both worktree and main workspaces. Uses xterm.js on the frontend, a dedicated WebSocket endpoint on the backend with creack/pty for PTY management.

@@ -5,7 +5,8 @@ status: scrapped
 type: feature
 priority: normal
 created_at: 2026-03-11T18:10:06Z
-updated_at: 2026-03-11T18:28:58Z
+updated_at: 2026-03-12T07:33:29Z
+order: zzk
 ---
 
 Replace hardcoded Commit and Review buttons in the Status pane with dynamic actions defined in the agent section of the config file. Add an actions subkey as an array with label and prompt fields. Make Commit and Review the defaults in beans init.
