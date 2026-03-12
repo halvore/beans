@@ -276,6 +276,22 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 		}
 	}
 
+	// ensureRunning transitions the session back to StatusRunning if it's
+	// currently Idle. This handles multi-turn processes where Claude Code
+	// starts a new turn (e.g. after a Stop hook) without us spawning a new
+	// process.
+	ensureRunning := func() {
+		m.mu.Lock()
+		s, ok := m.sessions[beanID]
+		if ok && s.Status == StatusIdle {
+			s.Status = StatusRunning
+			m.mu.Unlock()
+			m.notify(beanID)
+			return
+		}
+		m.mu.Unlock()
+	}
+
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {
@@ -308,6 +324,7 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 		case eventAssistantMessage:
 			// Flush any pending tool message before the assistant message
 			flushToolMsg()
+			ensureRunning()
 
 			// Full assistant message — arrives after stream_event deltas.
 			// Only use the text as fallback if deltas didn't already build it,
@@ -340,6 +357,8 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 			}
 
 		case eventToolUse:
+			ensureRunning()
+
 			// Handle blocking tools that require user interaction.
 			// Check session state to avoid re-intercepting mode switches
 			// that already took effect (e.g. after --resume).
@@ -441,6 +460,7 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 		case eventNewTextBlock:
 			// Flush any pending tool message before new text
 			flushToolMsg()
+			ensureRunning()
 
 			// New text content block starting — insert paragraph break if
 			// the current message already has content (e.g. after tool use).
@@ -461,6 +481,7 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 		case eventTextDelta:
 			// Flush any pending tool message before text starts
 			flushToolMsg()
+			ensureRunning()
 
 			// Streaming text delta (with --include-partial-messages)
 			m.appendAssistantText(beanID, ev.Text)
@@ -524,6 +545,8 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string) {
 			m.notify(beanID)
 
 		case eventTaskProgress:
+			ensureRunning()
+
 			// Subagent progress update — upsert by task_id.
 			m.mu.Lock()
 			if s, ok := m.sessions[beanID]; ok {

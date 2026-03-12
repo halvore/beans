@@ -1,8 +1,10 @@
 package agent
 
 import (
+	"io"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestReadOutputMessageOrder verifies that tool messages appear between
@@ -78,6 +80,89 @@ func TestReadOutputMessageOrder(t *testing.T) {
 			t.Errorf("msgs[%d].Content = %q, want it to contain %q", tt.idx, msg.Content, tt.contain)
 		}
 	}
+}
+
+// TestReadOutputMultiTurnResetsStatus verifies that when Claude Code starts a
+// new turn within the same process (e.g. after a Stop hook), the session status
+// transitions back to Running from Idle.
+func TestReadOutputMultiTurnResetsStatus(t *testing.T) {
+	// Use a pipe so we can feed lines one at a time and observe status between events.
+	pr, pw := io.Pipe()
+
+	m := &Manager{
+		sessions:    make(map[string]*Session),
+		processes:   make(map[string]*runningProcess),
+		subscribers: make(map[string][]chan struct{}),
+	}
+
+	session := &Session{
+		ID:           "bean-multi-turn",
+		AgentType:    "claude",
+		Status:       StatusRunning,
+		Messages:     []Message{{Role: RoleUser, Content: "hello"}},
+		streamingIdx: -1,
+	}
+	m.sessions["bean-multi-turn"] = session
+
+	// Run readOutput in a goroutine since it blocks
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		m.readOutput("bean-multi-turn", pr, "")
+	}()
+
+	// Helper to write a line and wait for it to be processed
+	writeLine := func(line string) {
+		_, _ = pw.Write([]byte(line + "\n"))
+	}
+
+	awaitStatus := func(want SessionStatus) SessionStatus {
+		deadline := time.After(500 * time.Millisecond)
+		for {
+			m.mu.RLock()
+			s := m.sessions["bean-multi-turn"].Status
+			m.mu.RUnlock()
+			if s == want {
+				return s
+			}
+			select {
+			case <-deadline:
+				return s
+			case <-time.After(time.Millisecond):
+			}
+		}
+	}
+
+	// Turn 1: text delta + result → should go Idle
+	writeLine(`{"type":"content_block_start","content_block":{"type":"text","text":""}}`)
+	writeLine(`{"type":"content_block_delta","delta":{"type":"text_delta","text":"Turn 1"}}`)
+	writeLine(`{"type":"result","session_id":"sess-1"}`)
+
+	status := awaitStatus(StatusIdle)
+	if status != StatusIdle {
+		t.Fatalf("after turn 1 result, expected Idle, got %s", status)
+	}
+
+	// Turn 2: new text delta arrives → should transition back to Running
+	writeLine(`{"type":"content_block_start","content_block":{"type":"text","text":""}}`)
+
+	status = awaitStatus(StatusRunning)
+	if status != StatusRunning {
+		t.Fatalf("after turn 2 starts, expected Running, got %s", status)
+	}
+
+	// Turn 2 completes
+	writeLine(`{"type":"content_block_delta","delta":{"type":"text_delta","text":"Turn 2"}}`)
+	writeLine(`{"type":"result","session_id":"sess-1"}`)
+
+	status = awaitStatus(StatusIdle)
+	if status != StatusIdle {
+		t.Fatalf("after turn 2 result, expected Idle, got %s", status)
+	}
+
+	// Close the pipe to let readOutput exit
+	pw.Close()
+	<-done
 }
 
 // TestReadOutputMultipleTools verifies ordering with multiple tool uses in a single turn.
