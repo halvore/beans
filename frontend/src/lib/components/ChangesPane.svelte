@@ -327,38 +327,38 @@
 {/snippet}
 
 {#snippet tabSwitcher()}
-  <div class="flex border-b border-border">
-    <button
-      class={[
-        'flex-1 cursor-pointer px-3 py-1.5 text-center text-xs font-medium transition-colors',
-        activeTab === 'all'
-          ? 'border-b-2 border-accent text-text'
-          : 'text-text-muted hover:text-text'
-      ]}
-      onclick={() => { activeTab = 'all'; }}
-    >
-      All Changes
-      {#if changesStore.allChanges.length > 0}
-        <span class="ml-1 text-text-faint">({changesStore.allChanges.length})</span>
-      {/if}
-    </button>
-    <button
-      class={[
-        'flex-1 px-3 py-1.5 text-center text-xs font-medium transition-colors',
-        activeTab === 'unstaged'
-          ? 'border-b-2 border-accent text-text cursor-pointer'
-          : hasUnstagedChanges
-            ? 'text-text-muted hover:text-text cursor-pointer'
-            : 'text-text-faint cursor-not-allowed'
-      ]}
-      disabled={!hasUnstagedChanges}
-      onclick={() => { activeTab = 'unstaged'; }}
-    >
-      Unstaged
-      {#if changesStore.changes.length > 0}
-        <span class="ml-1 text-text-faint">({changesStore.changes.length})</span>
-      {/if}
-    </button>
+  <div class="flex px-3 pt-3 pb-1.5">
+    <div class="flex w-full">
+      <button
+        class={[
+          'btn-tab-sm flex-1 rounded-l-md',
+          activeTab === 'all' ? 'btn-tab-active' : 'btn-tab-inactive'
+        ]}
+        onclick={() => { activeTab = 'all'; }}
+      >
+        All Changes
+        {#if changesStore.allChanges.length > 0}
+          <span class="ml-1 opacity-60">({changesStore.allChanges.length})</span>
+        {/if}
+      </button>
+      <button
+        class={[
+          'btn-tab-sm flex-1 rounded-r-md border-l-0',
+          activeTab === 'unstaged'
+            ? 'btn-tab-active'
+            : hasUnstagedChanges
+              ? 'btn-tab-inactive'
+              : 'btn-tab-inactive opacity-50 cursor-not-allowed'
+        ]}
+        disabled={!hasUnstagedChanges}
+        onclick={() => { activeTab = 'unstaged'; }}
+      >
+        Unstaged
+        {#if changesStore.changes.length > 0}
+          <span class="ml-1 opacity-60">({changesStore.changes.length})</span>
+        {/if}
+      </button>
+    </div>
   </div>
 {/snippet}
 
