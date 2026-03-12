@@ -1,7 +1,10 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { changesStore } from '$lib/changes.svelte';
   import { ui } from '$lib/uiState.svelte';
   import { configStore } from '$lib/config.svelte';
+
+  const hasChanges = $derived(changesStore.allChanges.length > 0);
 
   interface Props {
     children?: Snippet;
@@ -39,9 +42,12 @@
     {/if}
     <button
       onclick={() => ui.toggleChanges()}
-      class={['btn-toggle ml-1', ui.showChanges ? 'btn-toggle-active' : 'btn-toggle-inactive']}
+      class={['btn-toggle relative ml-1', ui.showChanges ? 'btn-toggle-active' : 'btn-toggle-inactive']}
       title={ui.showChanges ? 'Hide changes' : 'Show changes'}
     >
+      {#if hasChanges}
+        <span class="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400"></span>
+      {/if}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"

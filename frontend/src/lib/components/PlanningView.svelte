@@ -1,6 +1,7 @@
 <script lang="ts">
   import { beansStore } from '$lib/beans.svelte';
   import { AgentChatStore } from '$lib/agentChat.svelte';
+  import { changesStore } from '$lib/changes.svelte';
   import { ui } from '$lib/uiState.svelte';
 
   let { planningView }: { planningView: 'backlog' | 'board' } = $props();
@@ -26,6 +27,11 @@
 
   $effect(() => {
     agentStore.subscribe(CENTRAL_SESSION_ID);
+  });
+
+  $effect(() => {
+    changesStore.startPolling();
+    return () => changesStore.stopPolling();
   });
 
   onDestroy(() => {

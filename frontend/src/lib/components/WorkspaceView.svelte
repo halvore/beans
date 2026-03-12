@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AgentChatStore } from '$lib/agentChat.svelte';
+  import { changesStore } from '$lib/changes.svelte';
   import { ui } from '$lib/uiState.svelte';
   import { worktreeStore } from '$lib/worktrees.svelte';
   import { onDestroy } from 'svelte';
@@ -21,6 +22,11 @@
 
   $effect(() => {
     agentStore.subscribe(worktreeId);
+  });
+
+  $effect(() => {
+    changesStore.startPolling(worktreePath);
+    return () => changesStore.stopPolling();
   });
 
   onDestroy(() => {

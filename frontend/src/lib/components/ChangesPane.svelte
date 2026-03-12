@@ -1,8 +1,6 @@
 <script lang="ts">
   import { gql } from 'urql';
-  import { onMount, onDestroy } from 'svelte';
   import { changesStore, type FileChange } from '$lib/changes.svelte';
-  import { ui } from '$lib/uiState.svelte';
   import { client } from '$lib/graphqlClient';
 
   import SplitPane from '$lib/components/SplitPane.svelte';
@@ -115,13 +113,6 @@
   const totalCount = $derived(displayChanges.length);
 
 
-  onMount(() => {
-    changesStore.startPolling(path);
-  });
-
-  onDestroy(() => {
-    changesStore.stopPolling();
-  });
 
   function statusColor(status: string): string {
     switch (status) {
