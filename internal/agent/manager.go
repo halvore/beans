@@ -441,6 +441,8 @@ func (m *Manager) pruneOrphanedAttachments(beanID string) {
 }
 
 // Shutdown kills all running processes. Call on server shutdown.
+// Processes are killed concurrently to avoid accumulating per-process
+// timeouts (each kill waits up to 3s for graceful exit).
 func (m *Manager) Shutdown() {
 	m.mu.Lock()
 	procs := make(map[string]*runningProcess, len(m.processes))
@@ -450,9 +452,15 @@ func (m *Manager) Shutdown() {
 	m.processes = make(map[string]*runningProcess)
 	m.mu.Unlock()
 
+	var wg sync.WaitGroup
 	for _, proc := range procs {
-		proc.kill()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			proc.kill()
+		}()
 	}
+	wg.Wait()
 }
 
 // applyDefaultMode sets ActMode and PlanMode on a session based on the manager's default.

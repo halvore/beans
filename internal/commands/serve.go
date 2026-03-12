@@ -234,6 +234,15 @@ func runServer(port int, origins []string) error {
 	case <-ctx.Done():
 		fmt.Printf("\nShutting down...\n")
 
+		// Hard deadline: if graceful shutdown takes too long, force exit.
+		// This prevents zombie processes when cleanup hangs (e.g. a claude
+		// process ignores SIGINT, or a WebSocket handler blocks).
+		go func() {
+			time.Sleep(10 * time.Second)
+			fmt.Fprintf(os.Stderr, "Shutdown deadline exceeded, forcing exit\n")
+			os.Exit(1)
+		}()
+
 		// Create context with timeout for graceful shutdown
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
