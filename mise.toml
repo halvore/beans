@@ -18,11 +18,13 @@ run = { tasks = ["deps:backend", "deps:frontend"] }
 [tasks."deps:backend"]
 description = "Install backend dependencies"
 run = "go mod download"
+sources = ["go.mod", "go.sum"]
 
 [tasks."deps:frontend"]
 description = "Install frontend dependencies"
 dir = "frontend"
 run = "pnpm install"
+sources = ["frontend/package.json", "frontend/pnpm-lock.yaml"]
 
 [tasks.codegen]
 run = "go generate ./..."
@@ -124,6 +126,7 @@ run = "pnpm dev --port ${VITE_PORT:-5173}"
 
 [tasks.dev]
 description = "Run the development server"
+depends = "setup"
 run = { tasks = ["dev:serve", "dev:frontend"] }
 
 [tasks."dev:kill"]
