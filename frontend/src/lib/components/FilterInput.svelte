@@ -17,7 +17,7 @@
     placeholder="Filter beans… ({shortcutHint})"
     value={ui.filterText}
     oninput={(e) => ui.setFilterText(e.currentTarget.value)}
-    class="w-full rounded border border-border bg-surface px-3 py-1.5 pr-8 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+    class="w-full rounded-md border-none bg-surface px-3 py-1.5 pr-8 text-sm text-text placeholder:text-text-faint focus:outline-none"
     data-testid="filter-input"
   />
   {#if ui.filterText}
