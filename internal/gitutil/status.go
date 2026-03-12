@@ -101,6 +101,108 @@ func parseNumstat(output string, staged bool) ([]FileChange, error) {
 	return changes, nil
 }
 
+// MergeBase returns the merge-base commit between HEAD and the default remote
+// branch (e.g. origin/main). Returns ("", false) if it can't be determined.
+func MergeBase(dir string) (string, bool) {
+	remote, ok := DefaultRemoteBranch(dir, "origin")
+	if !ok {
+		return "", false
+	}
+	cmd := exec.Command("git", "-C", dir, "merge-base", "HEAD", remote)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(out)), true
+}
+
+// AllChangesVsUpstream returns all file changes compared to the upstream
+// merge-base: committed + staged + unstaged + untracked, deduplicated into
+// a single entry per file showing the total diff from merge-base to working tree.
+func AllChangesVsUpstream(dir string) ([]FileChange, error) {
+	base, ok := MergeBase(dir)
+	if !ok {
+		// Fallback: if no merge-base, just return regular working tree changes
+		return FileChanges(dir)
+	}
+
+	// Diff from merge-base to working tree (includes committed + staged + unstaged)
+	args := []string{"-C", dir, "diff", "--numstat", base}
+	cmd := exec.Command("git", args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	changes, err := parseNumstat(string(out), false)
+	if err != nil {
+		return nil, err
+	}
+
+	// Also include untracked files (not covered by git diff)
+	untracked, err := untrackedFiles(dir)
+	if err != nil {
+		return nil, err
+	}
+	changes = append(changes, untracked...)
+
+	// Detect added files: files that don't exist at the merge-base
+	existsAtBase := make(map[string]bool)
+	lsCmd := exec.Command("git", "-C", dir, "ls-tree", "--name-only", "-r", base)
+	lsOut, err := lsCmd.Output()
+	if err == nil {
+		for _, p := range strings.Split(strings.TrimSpace(string(lsOut)), "\n") {
+			if p != "" {
+				existsAtBase[p] = true
+			}
+		}
+		for i := range changes {
+			if changes[i].Status == "modified" && !existsAtBase[changes[i].Path] {
+				changes[i].Status = "added"
+			}
+		}
+	}
+
+	return changes, nil
+}
+
+// AllFileDiff returns the unified diff for a file compared to the upstream
+// merge-base. This shows the complete change from merge-base to working tree.
+func AllFileDiff(dir, filePath string) (string, error) {
+	base, ok := MergeBase(dir)
+	if !ok {
+		// Fallback to regular unstaged diff
+		return FileDiff(dir, filePath, false)
+	}
+
+	// Check if the file is untracked
+	cmd := exec.Command("git", "-C", dir, "ls-files", "--others", "--exclude-standard", "--", filePath)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(string(out)) != "" {
+		// Untracked file — show full content as a diff
+		cmd = exec.Command("git", "-C", dir, "diff", "--no-index", "/dev/null", filePath)
+		out, err = cmd.Output()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				return string(out), nil
+			}
+			return "", err
+		}
+		return string(out), nil
+	}
+
+	// Diff from merge-base to working tree for this file
+	cmd = exec.Command("git", "-C", dir, "diff", base, "--", filePath)
+	out, err = cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
 // HasUnmergedCommits returns true if the current branch in dir has commits
 // that are not in the given base branch (i.e., commits ahead).
 func HasUnmergedCommits(dir, baseBranch string) bool {

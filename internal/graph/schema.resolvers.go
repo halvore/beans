@@ -814,6 +814,47 @@ func (r *queryResolver) FileChanges(ctx context.Context, path *string) ([]*model
 	return result, nil
 }
 
+// AllFileChanges is the resolver for the allFileChanges field.
+func (r *queryResolver) AllFileChanges(ctx context.Context, path *string) ([]*model.FileChange, error) {
+	dir := r.ProjectRoot
+	if path != nil && *path != "" {
+		if r.WorktreeMgr != nil {
+			wts, err := r.WorktreeMgr.List()
+			if err != nil {
+				return nil, err
+			}
+			valid := false
+			for _, wt := range wts {
+				if wt.Path == *path {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return nil, fmt.Errorf("unknown worktree path: %s", *path)
+			}
+		}
+		dir = *path
+	}
+
+	changes, err := gitutil.AllChangesVsUpstream(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*model.FileChange, len(changes))
+	for i, c := range changes {
+		result[i] = &model.FileChange{
+			Path:      c.Path,
+			Status:    c.Status,
+			Additions: c.Additions,
+			Deletions: c.Deletions,
+			Staged:    c.Staged,
+		}
+	}
+	return result, nil
+}
+
 // FileDiff is the resolver for the fileDiff field.
 func (r *queryResolver) FileDiff(ctx context.Context, filePath string, staged bool, path *string) (string, error) {
 	// Sanitize filePath to prevent path traversal
@@ -845,6 +886,37 @@ func (r *queryResolver) FileDiff(ctx context.Context, filePath string, staged bo
 	}
 
 	return gitutil.FileDiff(dir, filePath, staged)
+}
+
+// AllFileDiff is the resolver for the allFileDiff field.
+func (r *queryResolver) AllFileDiff(ctx context.Context, filePath string, path *string) (string, error) {
+	cleaned := filepath.Clean(filePath)
+	if filepath.IsAbs(cleaned) || strings.HasPrefix(cleaned, "..") {
+		return "", fmt.Errorf("invalid file path: %s", filePath)
+	}
+
+	dir := r.ProjectRoot
+	if path != nil && *path != "" {
+		if r.WorktreeMgr != nil {
+			wts, err := r.WorktreeMgr.List()
+			if err != nil {
+				return "", err
+			}
+			valid := false
+			for _, wt := range wts {
+				if wt.Path == *path {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return "", fmt.Errorf("unknown worktree path: %s", *path)
+			}
+		}
+		dir = *path
+	}
+
+	return gitutil.AllFileDiff(dir, filePath)
 }
 
 // HasDirtyBeans is the resolver for the hasDirtyBeans field.

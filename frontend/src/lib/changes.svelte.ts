@@ -21,23 +21,43 @@ const FILE_CHANGES_QUERY = gql`
 	}
 `;
 
+const ALL_FILE_CHANGES_QUERY = gql`
+	query AllFileChanges($path: String) {
+		allFileChanges(path: $path) {
+			path
+			status
+			additions
+			deletions
+			staged
+		}
+	}
+`;
+
 class ChangesStore {
 	changes = $state<FileChange[]>([]);
+	allChanges = $state<FileChange[]>([]);
 	loading = $state(false);
 	#intervalId: ReturnType<typeof setInterval> | null = null;
 	#currentPath: string | null = null;
 
 	async fetch(path?: string): Promise<void> {
-		const result = await client
-			.query(FILE_CHANGES_QUERY, { path: path ?? null })
-			.toPromise();
+		const p = path ?? null;
+		const [result, allResult] = await Promise.all([
+			client.query(FILE_CHANGES_QUERY, { path: p }).toPromise(),
+			client.query(ALL_FILE_CHANGES_QUERY, { path: p }).toPromise()
+		]);
 
 		if (result.error) {
 			console.error('Failed to fetch file changes:', result.error);
-			return;
+		} else {
+			this.changes = result.data?.fileChanges ?? [];
 		}
 
-		this.changes = result.data?.fileChanges ?? [];
+		if (allResult.error) {
+			console.error('Failed to fetch all file changes:', allResult.error);
+		} else {
+			this.allChanges = allResult.data?.allFileChanges ?? [];
+		}
 	}
 
 	startPolling(path?: string, intervalMs = 3000): void {

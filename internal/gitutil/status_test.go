@@ -245,6 +245,187 @@ func TestFileDiff_Untracked(t *testing.T) {
 	}
 }
 
+// initBranchedTestRepo creates a test repo with a remote "origin" and a feature
+// branch that has diverged from main. Returns the worktree directory of the
+// feature branch. The main branch has README.md; the feature branch adds
+// feature.txt on top.
+func initBranchedTestRepo(t *testing.T) string {
+	t.Helper()
+
+	// Create the "remote" bare repo
+	bare := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = bare
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %s: %v", out, err)
+	}
+
+	// Clone it to create a working repo
+	dir := t.TempDir()
+	cmd = exec.Command("git", "clone", bare, dir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git clone failed: %s: %v", out, err)
+	}
+
+	gitRun(t, dir, "config", "user.email", "test@test.com")
+	gitRun(t, dir, "config", "user.name", "Test")
+
+	// Create initial commit on main
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "README.md")
+	gitRun(t, dir, "commit", "-m", "initial")
+	gitRun(t, dir, "push", "-u", "origin", "HEAD")
+
+	// Set origin/HEAD so MergeBase can find the default branch
+	gitRun(t, dir, "remote", "set-head", "origin", "--auto")
+
+	// Create a feature branch with a committed change
+	gitRun(t, dir, "checkout", "-b", "feature")
+	if err := os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature content\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "feature.txt")
+	gitRun(t, dir, "commit", "-m", "add feature")
+
+	return dir
+}
+
+func TestMergeBase(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	base, ok := MergeBase(dir)
+	if !ok {
+		t.Fatal("expected MergeBase to succeed")
+	}
+	if base == "" {
+		t.Fatal("expected non-empty merge-base")
+	}
+}
+
+func TestAllChangesVsUpstream_CommittedOnly(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	changes, err := AllChangesVsUpstream(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should show feature.txt as a new file (committed on feature branch)
+	if len(changes) != 1 {
+		t.Fatalf("expected 1 change, got %d: %+v", len(changes), changes)
+	}
+	if changes[0].Path != "feature.txt" {
+		t.Errorf("expected feature.txt, got %s", changes[0].Path)
+	}
+	if changes[0].Status != "added" {
+		t.Errorf("expected status added, got %s", changes[0].Status)
+	}
+}
+
+func TestAllChangesVsUpstream_CommittedPlusUnstaged(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	// Add an unstaged modification
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test\nmodified\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	changes, err := AllChangesVsUpstream(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should show feature.txt (committed) + README.md (unstaged)
+	if len(changes) != 2 {
+		t.Fatalf("expected 2 changes, got %d: %+v", len(changes), changes)
+	}
+
+	byPath := make(map[string]FileChange)
+	for _, c := range changes {
+		byPath[c.Path] = c
+	}
+
+	if _, ok := byPath["feature.txt"]; !ok {
+		t.Error("expected feature.txt in changes")
+	}
+	if c, ok := byPath["README.md"]; !ok {
+		t.Error("expected README.md in changes")
+	} else if c.Status != "modified" {
+		t.Errorf("expected README.md status modified, got %s", c.Status)
+	}
+}
+
+func TestAllChangesVsUpstream_WithUntracked(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	// Add an untracked file
+	if err := os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("data\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	changes, err := AllChangesVsUpstream(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should show feature.txt (committed) + untracked.txt
+	if len(changes) != 2 {
+		t.Fatalf("expected 2 changes, got %d: %+v", len(changes), changes)
+	}
+
+	byPath := make(map[string]FileChange)
+	for _, c := range changes {
+		byPath[c.Path] = c
+	}
+
+	if _, ok := byPath["feature.txt"]; !ok {
+		t.Error("expected feature.txt in changes")
+	}
+	if c, ok := byPath["untracked.txt"]; !ok {
+		t.Error("expected untracked.txt in changes")
+	} else if c.Status != "untracked" {
+		t.Errorf("expected untracked.txt status untracked, got %s", c.Status)
+	}
+}
+
+func TestAllFileDiff_CommittedFile(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	diff, err := AllFileDiff(dir, "feature.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff == "" {
+		t.Fatal("expected non-empty diff")
+	}
+	if !strings.Contains(diff, "+feature content") {
+		t.Errorf("expected diff to contain '+feature content', got:\n%s", diff)
+	}
+}
+
+func TestAllFileDiff_UntrackedFile(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	if err := os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("data\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	diff, err := AllFileDiff(dir, "untracked.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff == "" {
+		t.Fatal("expected non-empty diff")
+	}
+	if !strings.Contains(diff, "+data") {
+		t.Errorf("expected diff to contain '+data', got:\n%s", diff)
+	}
+}
+
 func TestParseNumstat(t *testing.T) {
 	tests := []struct {
 		name   string

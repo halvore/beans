@@ -38,7 +38,7 @@
       <button
         onclick={() => ui.toggleChanges()}
         class={['btn-toggle-icon', ui.showChanges ? 'btn-toggle-active' : 'btn-toggle-inactive']}
-        title={ui.showChanges ? 'Hide status' : 'Show status'}
+        title={ui.showChanges ? 'Hide changes' : 'Show changes'}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

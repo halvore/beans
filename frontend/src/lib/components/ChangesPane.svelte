@@ -21,6 +21,9 @@
 
   let { path, beanId, agentBusy = false }: Props = $props();
 
+  type Tab = 'unstaged' | 'all';
+  let activeTab = $state<Tab>('all');
+
   const AGENT_ACTIONS_QUERY = gql`
     query AgentActions($beanId: ID!) {
       agentActions(beanId: $beanId) {
@@ -40,6 +43,12 @@
   const FILE_DIFF_QUERY = gql`
     query FileDiff($filePath: String!, $staged: Boolean!, $path: String) {
       fileDiff(filePath: $filePath, staged: $staged, path: $path)
+    }
+  `;
+
+  const ALL_FILE_DIFF_QUERY = gql`
+    query AllFileDiff($filePath: String!, $path: String) {
+      allFileDiff(filePath: $filePath, path: $path)
     }
   `;
 
@@ -82,7 +91,11 @@
       return;
     }
     selectedFile = key;
-    fetchDiff(key.path, key.staged);
+    if (activeTab === 'all') {
+      fetchAllDiff(key.path);
+    } else {
+      fetchDiff(key.path, key.staged);
+    }
   }
 
   async function fetchDiff(filePath: string, staged: boolean) {
@@ -103,6 +116,23 @@
     diffLoading = false;
   }
 
+  async function fetchAllDiff(filePath: string) {
+    diffLoading = true;
+    const result = await client
+      .query(ALL_FILE_DIFF_QUERY, { filePath, path: path ?? null })
+      .toPromise();
+
+    if (selectedFile?.path !== filePath) return;
+
+    if (result.error) {
+      console.error('Failed to fetch all diff:', result.error);
+      diffContent = '';
+    } else {
+      diffContent = result.data?.allFileDiff ?? '';
+    }
+    diffLoading = false;
+  }
+
   // Re-fetch actions when beanId changes
   $effect(() => {
     if (beanId) {
@@ -119,11 +149,12 @@
     wasAgentBusy = agentBusy;
   });
 
-  // Clear selection when the selected file disappears from the changes list
+  // Clear selection when the selected file disappears from the active changes list
   $effect(() => {
     if (selectedFile) {
-      const stillExists = changesStore.changes.some(
-        (c) => c.path === selectedFile!.path && c.staged === selectedFile!.staged
+      const list = activeTab === 'all' ? changesStore.allChanges : changesStore.changes;
+      const stillExists = list.some(
+        (c) => c.path === selectedFile!.path && (activeTab === 'all' || c.staged === selectedFile!.staged)
       );
       if (!stillExists) {
         selectedFile = null;
@@ -132,9 +163,21 @@
     }
   });
 
+  // When switching tabs, clear the diff selection
+  let prevTab = $state<Tab>(activeTab);
+  $effect(() => {
+    if (activeTab !== prevTab) {
+      prevTab = activeTab;
+      selectedFile = null;
+      diffContent = '';
+    }
+  });
+
   const stagedChanges = $derived(changesStore.changes.filter((c) => c.staged));
   const unstagedChanges = $derived(changesStore.changes.filter((c) => !c.staged));
-  const totalCount = $derived(changesStore.changes.length);
+  const hasUnstagedChanges = $derived(changesStore.changes.length > 0);
+  const displayChanges = $derived(activeTab === 'all' ? changesStore.allChanges : changesStore.changes);
+  const totalCount = $derived(displayChanges.length);
 
   const diffLines = $derived(diffContent ? diffContent.split('\n') : []);
 
@@ -188,6 +231,9 @@
   }
 
   function isFileSelected(change: FileChange): boolean {
+    if (activeTab === 'all') {
+      return selectedFile?.path === change.path;
+    }
     return selectedFile?.path === change.path && selectedFile?.staged === change.staged;
   }
 
@@ -226,6 +272,10 @@
   <div class="flex-1 overflow-auto">
     {#if totalCount === 0}
       <p class="px-3 py-4 text-center text-text-muted">No changes</p>
+    {:else if activeTab === 'all'}
+      {#each changesStore.allChanges as change (change.path)}
+        {@render fileRow(change)}
+      {/each}
     {:else}
       {#if stagedChanges.length > 0}
         <div class="px-3 pt-2 pb-1 font-medium text-text-muted">Staged</div>
@@ -251,7 +301,7 @@
     <div class="flex items-center justify-between px-3 py-1.5">
       <span class="truncate font-mono text-xs text-text-muted">
         {selectedFile?.path}
-        {#if selectedFile?.staged}
+        {#if activeTab !== 'all' && selectedFile?.staged}
           <span class="text-text-faint">(staged)</span>
         {/if}
       </span>
@@ -269,21 +319,59 @@
       {:else if diffContent === ''}
         <p class="px-3 py-4 text-center text-text-muted">No diff available</p>
       {:else}
-        <pre class="font-mono text-xs leading-relaxed">{#each diffLines as line}<span class={diffLineClass(line)}>{line}
+        <pre class="font-mono text-xs leading-relaxed">{#each diffLines as line, i (i)}<span class={diffLineClass(line)}>{line}
 </span>{/each}</pre>
       {/if}
     </div>
   </div>
 {/snippet}
 
+{#snippet tabSwitcher()}
+  <div class="flex border-b border-border">
+    <button
+      class={[
+        'flex-1 cursor-pointer px-3 py-1.5 text-center text-xs font-medium transition-colors',
+        activeTab === 'all'
+          ? 'border-b-2 border-accent text-text'
+          : 'text-text-muted hover:text-text'
+      ]}
+      onclick={() => { activeTab = 'all'; }}
+    >
+      All Changes
+      {#if changesStore.allChanges.length > 0}
+        <span class="ml-1 text-text-faint">({changesStore.allChanges.length})</span>
+      {/if}
+    </button>
+    <button
+      class={[
+        'flex-1 px-3 py-1.5 text-center text-xs font-medium transition-colors',
+        activeTab === 'unstaged'
+          ? 'border-b-2 border-accent text-text cursor-pointer'
+          : hasUnstagedChanges
+            ? 'text-text-muted hover:text-text cursor-pointer'
+            : 'text-text-faint cursor-not-allowed'
+      ]}
+      disabled={!hasUnstagedChanges}
+      onclick={() => { activeTab = 'unstaged'; }}
+    >
+      Unstaged
+      {#if changesStore.changes.length > 0}
+        <span class="ml-1 text-text-faint">({changesStore.changes.length})</span>
+      {/if}
+    </button>
+  </div>
+{/snippet}
+
 <div class="flex h-full flex-col border-l border-border bg-surface">
-  <PaneHeader title="Status" onClose={() => ui.toggleChanges()}>
+  <PaneHeader title="Changes" onClose={() => ui.toggleChanges()}>
     {#snippet extra()}
       {#if totalCount > 0}
         <span class="ml-1 text-sm text-text-muted">({totalCount})</span>
       {/if}
     {/snippet}
   </PaneHeader>
+
+  {@render tabSwitcher()}
 
   {#if selectedFile}
     <SplitPane direction="vertical" side="start" initialSize={200} minSize={60} persistKey="changes-diff">

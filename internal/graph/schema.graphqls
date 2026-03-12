@@ -29,11 +29,23 @@ type Query {
   fileChanges(path: String): [FileChange!]!
 
   """
+  Get all file changes compared to the upstream branch (committed + staged + unstaged + untracked).
+  If path is null, uses the project root.
+  """
+  allFileChanges(path: String): [FileChange!]!
+
+  """
   Get the unified diff for a specific file. Returns the diff as a string.
   The filePath is relative to the repo/worktree root.
   If staged is true, shows the staged diff; otherwise shows the working tree diff.
   """
   fileDiff(filePath: String!, staged: Boolean!, path: String): String!
+
+  """
+  Get the unified diff for a specific file compared to the upstream branch merge-base.
+  Shows the complete change from merge-base to working tree.
+  """
+  allFileDiff(filePath: String!, path: String): String!
 
   """
   Whether any beans have unsaved runtime changes

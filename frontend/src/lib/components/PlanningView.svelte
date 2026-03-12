@@ -97,7 +97,7 @@
       <button
         onclick={() => ui.toggleChanges()}
         class={['btn-toggle ml-3', ui.showChanges ? 'btn-toggle-active' : 'btn-toggle-inactive']}
-        title={ui.showChanges ? 'Hide status' : 'Show status'}
+        title={ui.showChanges ? 'Hide changes' : 'Show changes'}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -109,7 +109,7 @@
             d="M18 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-3v3h-2v-3H9V9h3V6h2v3h3v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm12 9H10v-2h6v2z"
           />
         </svg>
-        Status
+        Changes
       </button>
       <button
         onclick={() => ui.togglePlanningChat()}
