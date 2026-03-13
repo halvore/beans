@@ -90,6 +90,9 @@
       >
         {bean.type}
       </span>
+      {#each bean.tags as tag}
+        <span class="badge-sm bg-surface-alt text-text-muted">{tag}</span>
+      {/each}
       {#if isArchivable}
         <button
           class="ml-auto cursor-pointer icon-[uil--archive] size-3.5 text-text-faint transition-colors hover:text-text-muted disabled:opacity-50"
@@ -109,6 +112,9 @@
       <span class={['flex-1 truncate text-text', variant === 'compact' ? 'text-xs' : 'text-sm']}
         >{bean.title}</span
       >
+      {#each bean.tags as tag}
+        <span class="shrink-0 badge-sm bg-surface-alt text-text-muted">{tag}</span>
+      {/each}
       <span
         class={[
           'shrink-0 badge-sm',
