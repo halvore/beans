@@ -8,6 +8,7 @@ const (
 	RoleUser      MessageRole = "user"
 	RoleAssistant MessageRole = "assistant"
 	RoleTool      MessageRole = "tool"
+	RoleInfo      MessageRole = "info" // system info messages (not sent to Claude)
 )
 
 // SessionStatus represents the current state of an agent session.

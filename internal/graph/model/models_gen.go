@@ -318,6 +318,10 @@ type Worktree struct {
 	Path string `json:"path"`
 	// Beans detected from changes in this worktree vs the base branch
 	Beans []*bean.Bean `json:"beans"`
+	// Post-creation setup status (null if no setup configured)
+	SetupStatus *WorktreeSetupStatus `json:"setupStatus,omitempty"`
+	// Error message if setup failed
+	SetupError *string `json:"setupError,omitempty"`
 }
 
 // Role of an agent message sender
@@ -327,17 +331,19 @@ const (
 	AgentMessageRoleUser      AgentMessageRole = "USER"
 	AgentMessageRoleAssistant AgentMessageRole = "ASSISTANT"
 	AgentMessageRoleTool      AgentMessageRole = "TOOL"
+	AgentMessageRoleInfo      AgentMessageRole = "INFO"
 )
 
 var AllAgentMessageRole = []AgentMessageRole{
 	AgentMessageRoleUser,
 	AgentMessageRoleAssistant,
 	AgentMessageRoleTool,
+	AgentMessageRoleInfo,
 }
 
 func (e AgentMessageRole) IsValid() bool {
 	switch e {
-	case AgentMessageRoleUser, AgentMessageRoleAssistant, AgentMessageRoleTool:
+	case AgentMessageRoleUser, AgentMessageRoleAssistant, AgentMessageRoleTool, AgentMessageRoleInfo:
 		return true
 	}
 	return false
@@ -550,6 +556,64 @@ func (e *InteractionType) UnmarshalJSON(b []byte) error {
 }
 
 func (e InteractionType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// Status of a worktree's post-creation setup command
+type WorktreeSetupStatus string
+
+const (
+	WorktreeSetupStatusRunning WorktreeSetupStatus = "RUNNING"
+	WorktreeSetupStatusDone    WorktreeSetupStatus = "DONE"
+	WorktreeSetupStatusFailed  WorktreeSetupStatus = "FAILED"
+)
+
+var AllWorktreeSetupStatus = []WorktreeSetupStatus{
+	WorktreeSetupStatusRunning,
+	WorktreeSetupStatusDone,
+	WorktreeSetupStatusFailed,
+}
+
+func (e WorktreeSetupStatus) IsValid() bool {
+	switch e {
+	case WorktreeSetupStatusRunning, WorktreeSetupStatusDone, WorktreeSetupStatusFailed:
+		return true
+	}
+	return false
+}
+
+func (e WorktreeSetupStatus) String() string {
+	return string(e)
+}
+
+func (e *WorktreeSetupStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = WorktreeSetupStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid WorktreeSetupStatus", str)
+	}
+	return nil
+}
+
+func (e WorktreeSetupStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *WorktreeSetupStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e WorktreeSetupStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

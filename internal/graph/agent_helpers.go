@@ -21,6 +21,8 @@ func agentSessionToModel(s *agent.Session) *model.AgentSession {
 			role = model.AgentMessageRoleAssistant
 		case agent.RoleTool:
 			role = model.AgentMessageRoleTool
+		case agent.RoleInfo:
+			role = model.AgentMessageRoleInfo
 		}
 		images := make([]*model.AgentMessageImage, 0, len(m.Images))
 		for _, img := range m.Images {

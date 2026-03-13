@@ -11,6 +11,8 @@ export interface Worktree {
   description: string | null;
   branch: string;
   path: string;
+  setupStatus: 'RUNNING' | 'DONE' | 'FAILED' | null;
+  setupError: string | null;
 }
 
 const WORKTREE_FIELDS = `
@@ -19,6 +21,8 @@ const WORKTREE_FIELDS = `
   description
   branch
   path
+  setupStatus
+  setupError
 `;
 
 const WORKTREES_SUBSCRIPTION = gql`

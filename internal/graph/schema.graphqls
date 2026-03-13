@@ -495,6 +495,19 @@ type Worktree {
   path: String!
   "Beans detected from changes in this worktree vs the base branch"
   beans: [Bean!]!
+  "Post-creation setup status (null if no setup configured)"
+  setupStatus: WorktreeSetupStatus
+  "Error message if setup failed"
+  setupError: String
+}
+
+"""
+Status of a worktree's post-creation setup command
+"""
+enum WorktreeSetupStatus {
+  RUNNING
+  DONE
+  FAILED
 }
 
 """
@@ -650,6 +663,7 @@ enum AgentMessageRole {
   USER
   ASSISTANT
   TOOL
+  INFO
 }
 
 """

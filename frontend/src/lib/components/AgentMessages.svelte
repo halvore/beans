@@ -127,6 +127,10 @@
               {/if}
             </div>
           </div>
+        {:else if msg.role === 'INFO'}
+          <div class="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-muted italic">
+            <p class="whitespace-pre-wrap">{msg.content}</p>
+          </div>
         {:else if msg.role === 'TOOL'}
           <div class="text-text-faint">
             <div class="flex gap-2">

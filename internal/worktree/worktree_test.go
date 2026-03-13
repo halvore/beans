@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // initTestRepo creates a temporary git repo with an initial commit
@@ -555,15 +556,47 @@ func TestCreateRunsSetupCommand(t *testing.T) {
 	// Use a setup command that creates a marker file
 	mgr := NewManager(repoDir, beansDir, "", "touch .setup-done")
 
+	// Track setup completion via callback
+	done := make(chan bool, 1)
+	mgr.SetOnSetupDone(func(id string, success bool, errMsg string) {
+		done <- success
+	})
+
 	wt, err := mgr.Create("setup-test")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
+	}
+
+	// Setup status should be running immediately after Create
+	if wt.Setup != SetupRunning {
+		t.Errorf("expected setup status 'running', got %q", wt.Setup)
+	}
+
+	// Wait for async setup to complete
+	select {
+	case success := <-done:
+		if !success {
+			t.Error("setup command failed")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for setup command")
 	}
 
 	// The setup command should have created the marker file in the worktree
 	markerPath := filepath.Join(wt.Path, ".setup-done")
 	if _, err := os.Stat(markerPath); os.IsNotExist(err) {
 		t.Error("setup command did not run: .setup-done file not found")
+	}
+
+	// Verify setup status is updated in List()
+	wts, err := mgr.List()
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	for _, w := range wts {
+		if w.ID == wt.ID && w.Setup != SetupDone {
+			t.Errorf("expected setup status 'done' in List(), got %q", w.Setup)
+		}
 	}
 }
 

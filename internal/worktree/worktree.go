@@ -19,15 +19,31 @@ import (
 
 const branchPrefix = "beans/"
 
+// SetupStatus represents the state of a worktree's post-creation setup.
+type SetupStatus string
+
+const (
+	SetupNone    SetupStatus = ""        // no setup configured or already done
+	SetupRunning SetupStatus = "running" // setup command is executing
+	SetupDone    SetupStatus = "done"    // setup completed successfully
+	SetupFailed  SetupStatus = "failed"  // setup command failed
+)
+
 // Worktree represents a git worktree.
 type Worktree struct {
 	ID          string
 	Branch      string
 	Path        string
-	Name        string   // Human-readable name
-	Description string   // Auto-generated summary of what this workspace is doing
-	BeanIDs     []string // Bean IDs detected from changes vs base branch
+	Name        string      // Human-readable name
+	Description string      // Auto-generated summary of what this workspace is doing
+	BeanIDs     []string    // Bean IDs detected from changes vs base branch
+	Setup       SetupStatus // post-creation setup status (runtime only)
+	SetupError  string      // error message if setup failed
 }
+
+// SetupDoneFunc is called when a worktree's setup command finishes.
+// Receives the worktree ID, success status, and error message (if failed).
+type SetupDoneFunc func(worktreeID string, success bool, errMsg string)
 
 // Manager handles git worktree operations for a repository.
 type Manager struct {
@@ -37,9 +53,21 @@ type Manager struct {
 	setupCommand string // shell command to run after worktree creation
 	mu           sync.RWMutex
 
+	// setupStatuses tracks runtime setup status for worktrees (not persisted)
+	setupStatuses map[string]setupState
+
+	// onSetupDone is called when a worktree's setup command finishes
+	onSetupDone SetupDoneFunc
+
 	// subscribers for worktree change events
 	subMu       sync.Mutex
 	subscribers []chan struct{}
+}
+
+// setupState tracks the runtime setup status and error for a worktree.
+type setupState struct {
+	status SetupStatus
+	err    string
 }
 
 // NewManager creates a new worktree manager for the given repository root.
@@ -47,7 +75,7 @@ type Manager struct {
 // baseRef is the git ref to use as the starting point for new branches (e.g. "main").
 // setupCommand is an optional shell command to run inside new worktrees after creation.
 func NewManager(repoRoot, beansDir, baseRef, setupCommand string) *Manager {
-	return &Manager{repoRoot: repoRoot, beansDir: beansDir, baseRef: baseRef, setupCommand: setupCommand}
+	return &Manager{repoRoot: repoRoot, beansDir: beansDir, baseRef: baseRef, setupCommand: setupCommand, setupStatuses: make(map[string]setupState)}
 }
 
 // RepoRoot returns the path to the main repository root.
@@ -58,6 +86,11 @@ func (m *Manager) RepoRoot() string {
 // BaseRef returns the configured base ref for worktree branches.
 func (m *Manager) BaseRef() string {
 	return m.baseRef
+}
+
+// SetOnSetupDone registers a callback that fires when a worktree's setup command finishes.
+func (m *Manager) SetOnSetupDone(fn SetupDoneFunc) {
+	m.onSetupDone = fn
 }
 
 // Subscribe returns a channel that receives a signal whenever worktrees change.
@@ -123,6 +156,11 @@ func (m *Manager) List() ([]Worktree, error) {
 			worktrees[i].Description = meta.Description
 		}
 		worktrees[i].BeanIDs = m.DetectBeanIDs(worktrees[i].Path)
+		// Attach runtime setup status
+		if st, ok := m.setupStatuses[worktrees[i].ID]; ok {
+			worktrees[i].Setup = st.status
+			worktrees[i].SetupError = st.err
+		}
 	}
 
 	return worktrees, nil
@@ -260,23 +298,41 @@ func (m *Manager) Create(name string) (*Worktree, error) {
 		log.Printf("[worktree] warning: failed to save metadata for %s: %v", id, err)
 	}
 
-	// Run setup command if configured
-	if m.setupCommand != "" {
-		log.Printf("[worktree] running setup command in %s: %s", worktreePath, m.setupCommand)
-		setupCmd := exec.Command("sh", "-c", m.setupCommand)
-		setupCmd.Dir = worktreePath
-		if out, err := setupCmd.CombinedOutput(); err != nil {
-			log.Printf("[worktree] setup command failed in %s: %s: %v", worktreePath, strings.TrimSpace(string(out)), err)
-		} else {
-			log.Printf("[worktree] setup command completed in %s", worktreePath)
-		}
-	}
-
 	wt := &Worktree{
 		ID:     id,
 		Branch: branch,
 		Path:   worktreePath,
 		Name:   name,
+	}
+
+	// Run setup command asynchronously if configured
+	if m.setupCommand != "" {
+		m.setupStatuses[id] = setupState{status: SetupRunning}
+		wt.Setup = SetupRunning
+
+		go func() {
+			log.Printf("[worktree] running setup command in %s: %s", worktreePath, m.setupCommand)
+			setupCmd := exec.Command("sh", "-c", m.setupCommand)
+			setupCmd.Dir = worktreePath
+			out, err := setupCmd.CombinedOutput()
+
+			m.mu.Lock()
+			if err != nil {
+				errMsg := strings.TrimSpace(string(out))
+				log.Printf("[worktree] setup command failed in %s: %s: %v", worktreePath, errMsg, err)
+				m.setupStatuses[id] = setupState{status: SetupFailed, err: errMsg}
+			} else {
+				log.Printf("[worktree] setup command completed in %s", worktreePath)
+				m.setupStatuses[id] = setupState{status: SetupDone}
+			}
+			m.mu.Unlock()
+
+			m.notify()
+
+			if m.onSetupDone != nil {
+				m.onSetupDone(id, err == nil, strings.TrimSpace(string(out)))
+			}
+		}()
 	}
 
 	log.Printf("[worktree] created worktree %s (name=%s, branch=%s, path=%s)", id, name, branch, worktreePath)

@@ -212,6 +212,8 @@ type ComplexityRoot struct {
 		ID          func(childComplexity int) int
 		Name        func(childComplexity int) int
 		Path        func(childComplexity int) int
+		SetupError  func(childComplexity int) int
+		SetupStatus func(childComplexity int) int
 	}
 }
 
@@ -1163,6 +1165,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Worktree.Path(childComplexity), true
+	case "Worktree.setupError":
+		if e.complexity.Worktree.SetupError == nil {
+			break
+		}
+
+		return e.complexity.Worktree.SetupError(childComplexity), true
+	case "Worktree.setupStatus":
+		if e.complexity.Worktree.SetupStatus == nil {
+			break
+		}
+
+		return e.complexity.Worktree.SetupStatus(childComplexity), true
 
 	}
 	return 0, false
@@ -4806,6 +4820,10 @@ func (ec *executionContext) fieldContext_Mutation_createWorktree(ctx context.Con
 				return ec.fieldContext_Worktree_path(ctx, field)
 			case "beans":
 				return ec.fieldContext_Worktree_beans(ctx, field)
+			case "setupStatus":
+				return ec.fieldContext_Worktree_setupStatus(ctx, field)
+			case "setupError":
+				return ec.fieldContext_Worktree_setupError(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Worktree", field.Name)
 		},
@@ -5578,6 +5596,10 @@ func (ec *executionContext) fieldContext_Query_worktrees(_ context.Context, fiel
 				return ec.fieldContext_Worktree_path(ctx, field)
 			case "beans":
 				return ec.fieldContext_Worktree_beans(ctx, field)
+			case "setupStatus":
+				return ec.fieldContext_Worktree_setupStatus(ctx, field)
+			case "setupError":
+				return ec.fieldContext_Worktree_setupError(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Worktree", field.Name)
 		},
@@ -6347,6 +6369,10 @@ func (ec *executionContext) fieldContext_Subscription_worktreesChanged(_ context
 				return ec.fieldContext_Worktree_path(ctx, field)
 			case "beans":
 				return ec.fieldContext_Worktree_beans(ctx, field)
+			case "setupStatus":
+				return ec.fieldContext_Worktree_setupStatus(ctx, field)
+			case "setupError":
+				return ec.fieldContext_Worktree_setupError(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Worktree", field.Name)
 		},
@@ -6673,6 +6699,64 @@ func (ec *executionContext) fieldContext_Worktree_beans(_ context.Context, field
 				return ec.fieldContext_Bean_implicitStatusFrom(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Bean", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Worktree_setupStatus(ctx context.Context, field graphql.CollectedField, obj *model.Worktree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Worktree_setupStatus,
+		func(ctx context.Context) (any, error) {
+			return obj.SetupStatus, nil
+		},
+		nil,
+		ec.marshalOWorktreeSetupStatus2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐWorktreeSetupStatus,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Worktree_setupStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Worktree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type WorktreeSetupStatus does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Worktree_setupError(ctx context.Context, field graphql.CollectedField, obj *model.Worktree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Worktree_setupError,
+		func(ctx context.Context) (any, error) {
+			return obj.SetupError, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Worktree_setupError(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Worktree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -10280,6 +10364,10 @@ func (ec *executionContext) _Worktree(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "setupStatus":
+			out.Values[i] = ec._Worktree_setupStatus(ctx, field, obj)
+		case "setupError":
+			out.Values[i] = ec._Worktree_setupError(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -11860,6 +11948,22 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOWorktreeSetupStatus2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐWorktreeSetupStatus(ctx context.Context, v any) (*model.WorktreeSetupStatus, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(model.WorktreeSetupStatus)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOWorktreeSetupStatus2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐWorktreeSetupStatus(ctx context.Context, sel ast.SelectionSet, v *model.WorktreeSetupStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

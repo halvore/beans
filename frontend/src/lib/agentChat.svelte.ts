@@ -8,7 +8,7 @@ export interface AgentMessageImage {
 }
 
 export interface AgentMessage {
-  role: 'USER' | 'ASSISTANT' | 'TOOL';
+  role: 'USER' | 'ASSISTANT' | 'TOOL' | 'INFO';
   content: string;
   images: AgentMessageImage[];
   diff: string | null;

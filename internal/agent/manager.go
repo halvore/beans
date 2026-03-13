@@ -285,6 +285,37 @@ func (m *Manager) notify(beanID string) {
 	m.globalSubMu.Unlock()
 }
 
+// AddInfoMessage appends an informational message to a session's chat history.
+// Info messages are visible to the user but never sent to Claude.
+// If no session exists for the beanID, one is created.
+func (m *Manager) AddInfoMessage(beanID, content string) {
+	msg := Message{Role: RoleInfo, Content: content}
+
+	m.mu.Lock()
+	session, ok := m.sessions[beanID]
+	if !ok {
+		session = &Session{
+			ID:           beanID,
+			AgentType:    "claude",
+			Status:       StatusIdle,
+			streamingIdx: -1,
+		}
+		m.applyDefaultMode(session)
+		m.sessions[beanID] = session
+	}
+	session.Messages = append(session.Messages, msg)
+	m.mu.Unlock()
+
+	// Persist info message
+	if m.store != nil {
+		if err := m.store.appendMessage(beanID, msg); err != nil {
+			log.Printf("[agent:%s] failed to persist info message: %v", beanID, err)
+		}
+	}
+
+	m.notify(beanID)
+}
+
 // SetPlanMode toggles plan mode for a session, killing any running process
 // since --permission-mode is a startup flag that requires respawning.
 func (m *Manager) SetPlanMode(beanID string, planMode bool) error {

@@ -151,6 +151,15 @@ func runServer(port int, origins []string) error {
 	}, agent.DefaultMode(cfg.GetDefaultMode()))
 	defer agentMgr.Shutdown()
 
+	// Post an info message to the workspace's agent chat when setup finishes.
+	wtManager.SetOnSetupDone(func(worktreeID string, success bool, output string) {
+		if success {
+			agentMgr.AddInfoMessage(worktreeID, "Workspace setup completed successfully.")
+		} else {
+			agentMgr.AddInfoMessage(worktreeID, fmt.Sprintf("Workspace setup failed:\n```\n%s\n```", output))
+		}
+	})
+
 	// Auto-generate workspace descriptions after the first agent response.
 	// Runs a cheap Claude call (Haiku) in the background to summarize what
 	// the workspace is doing, then stores it as worktree metadata.

@@ -187,5 +187,20 @@ func worktreeToModel(wt *worktree.Worktree, core *beancore.Core) *model.Worktree
 			}
 		}
 	}
+	// Map setup status
+	switch wt.Setup {
+	case worktree.SetupRunning:
+		s := model.WorktreeSetupStatusRunning
+		m.SetupStatus = &s
+	case worktree.SetupDone:
+		s := model.WorktreeSetupStatusDone
+		m.SetupStatus = &s
+	case worktree.SetupFailed:
+		s := model.WorktreeSetupStatusFailed
+		m.SetupStatus = &s
+	}
+	if wt.SetupError != "" {
+		m.SetupError = &wt.SetupError
+	}
 	return m
 }

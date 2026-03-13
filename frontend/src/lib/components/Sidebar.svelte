@@ -14,6 +14,7 @@
     label: string;
     description: string | null;
     beans: Bean[];
+    settingUp: boolean;
   }
 
   /** Beans linked to a worktree via worktreeId, derived from the bean store. */
@@ -21,7 +22,7 @@
     return beansStore.all.filter((b) => b.worktreeId === worktreeId);
   }
 
-  const mainWorkspace: WorkspaceItem = $derived({ id: MAIN_WORKSPACE_ID, label: configStore.mainBranch, description: null, beans: [] });
+  const mainWorkspace: WorkspaceItem = $derived({ id: MAIN_WORKSPACE_ID, label: configStore.mainBranch, description: null, beans: [], settingUp: false });
 
   const workspaceItems = $derived([
     mainWorkspace,
@@ -29,7 +30,8 @@
       id: wt.id,
       label: wt.name ?? wt.branch,
       description: wt.description,
-      beans: beansForWorktree(wt.id)
+      beans: beansForWorktree(wt.id),
+      settingUp: wt.setupStatus === 'RUNNING'
     }))
   ]);
 
@@ -129,7 +131,9 @@
           >
             <div class="min-w-0 flex-1">
               <span class="block truncate">{item.label}</span>
-              {#if item.description}
+              {#if item.settingUp}
+                <span class="block text-xs font-normal text-text-faint animate-pulse">Setting up...</span>
+              {:else if item.description}
                 <span class="block text-xs font-normal text-text-faint">{item.description}</span>
               {/if}
             </div>
