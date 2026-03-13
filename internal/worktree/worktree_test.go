@@ -505,6 +505,50 @@ func TestDetectBeanIDs_DeletedFile(t *testing.T) {
 	}
 }
 
+func TestUpdateDescription(t *testing.T) {
+	repoDir, beansDir := initTestRepo(t)
+	mgr := NewManager(repoDir, beansDir, "")
+
+	// Create a worktree
+	wt, err := mgr.Create("desc-test")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Subscribe to get notified of the update
+	ch := mgr.Subscribe()
+	defer mgr.Unsubscribe(ch)
+
+	// Update the description
+	if err := mgr.UpdateDescription(wt.ID, "Fix auth token refresh bug"); err != nil {
+		t.Fatalf("UpdateDescription: %v", err)
+	}
+
+	// Should have notified
+	select {
+	case <-ch:
+	default:
+		t.Error("expected notification after UpdateDescription")
+	}
+
+	// List should return the description
+	wts, err := mgr.List()
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(wts) != 1 {
+		t.Fatalf("expected 1 worktree, got %d", len(wts))
+	}
+	if wts[0].Description != "Fix auth token refresh bug" {
+		t.Errorf("Description = %q, want %q", wts[0].Description, "Fix auth token refresh bug")
+	}
+
+	// The name should still be preserved
+	if wts[0].Name != "desc-test" {
+		t.Errorf("Name = %q, want %q", wts[0].Name, "desc-test")
+	}
+}
+
 // gitRun runs a git command in the given directory, failing the test on error.
 func gitRun(t *testing.T, dir string, args ...string) {
 	t.Helper()

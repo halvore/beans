@@ -21,11 +21,12 @@ const branchPrefix = "beans/"
 
 // Worktree represents a git worktree.
 type Worktree struct {
-	ID      string
-	Branch  string
-	Path    string
-	Name    string   // Human-readable name
-	BeanIDs []string // Bean IDs detected from changes vs base branch
+	ID          string
+	Branch      string
+	Path        string
+	Name        string   // Human-readable name
+	Description string   // Auto-generated summary of what this workspace is doing
+	BeanIDs     []string // Bean IDs detected from changes vs base branch
 }
 
 // Manager handles git worktree operations for a repository.
@@ -108,10 +109,11 @@ func (m *Manager) List() ([]Worktree, error) {
 
 	worktrees := parsePorcelain(string(out))
 
-	// Enrich with metadata (name for standalone worktrees)
+	// Enrich with metadata (name, description for standalone worktrees)
 	for i := range worktrees {
 		if meta := m.loadMeta(worktrees[i].ID); meta != nil {
 			worktrees[i].Name = meta.Name
+			worktrees[i].Description = meta.Description
 		}
 		worktrees[i].BeanIDs = m.DetectBeanIDs(worktrees[i].Path)
 	}
@@ -265,7 +267,8 @@ func (m *Manager) Create(name string) (*Worktree, error) {
 
 // worktreeMeta is the metadata stored alongside standalone worktrees.
 type worktreeMeta struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 }
 
 // metaPath returns the path to the metadata file for a worktree ID.
@@ -300,6 +303,23 @@ func (m *Manager) removeMeta(id string) {
 	os.Remove(m.metaPath(id))
 }
 
+
+// UpdateDescription updates the description for a worktree and notifies subscribers.
+func (m *Manager) UpdateDescription(id, description string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	meta := m.loadMeta(id)
+	if meta == nil {
+		meta = &worktreeMeta{}
+	}
+	meta.Description = description
+	if err := m.saveMeta(id, meta); err != nil {
+		return fmt.Errorf("save description: %w", err)
+	}
+	m.notify()
+	return nil
+}
 
 // Remove removes the worktree with the given ID.
 // The actual worktree path is looked up from git (not computed), so this works

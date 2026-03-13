@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -145,6 +146,32 @@ func runServer(port int, origins []string) error {
 		return sb.String()
 	}, agent.DefaultMode(cfg.GetDefaultMode()))
 	defer agentMgr.Shutdown()
+
+	// Auto-generate workspace descriptions after the first agent response.
+	// Runs a cheap Claude call (Haiku) in the background to summarize what
+	// the workspace is doing, then stores it as worktree metadata.
+	agentMgr.SetOnFirstResponse(func(beanID string, messages []agent.Message) {
+		// Only generate for worktree agents, not central
+		if beanID == graph.CentralSessionID {
+			return
+		}
+		// Only if this worktree exists and doesn't already have a description
+		if wts, err := wtManager.List(); err == nil {
+			for _, wt := range wts {
+				if wt.ID == beanID && wt.Description == "" {
+					desc := agent.GenerateDescription(messages)
+					if desc != "" {
+						if err := wtManager.UpdateDescription(beanID, desc); err != nil {
+							log.Printf("[beans] failed to save workspace description for %s: %v", beanID, err)
+						} else {
+							log.Printf("[beans] generated workspace description for %s: %q", beanID, desc)
+						}
+					}
+					break
+				}
+			}
+		}
+	})
 
 	// When bean files change in a worktree, also notify the worktree manager
 	// so the worktree subscription re-emits with updated detected bean IDs.

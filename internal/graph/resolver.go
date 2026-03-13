@@ -177,6 +177,9 @@ func worktreeToModel(wt *worktree.Worktree, core *beancore.Core) *model.Worktree
 	if wt.Name != "" {
 		m.Name = &wt.Name
 	}
+	if wt.Description != "" {
+		m.Description = &wt.Description
+	}
 	if core != nil {
 		for _, id := range wt.BeanIDs {
 			if b, err := core.Get(id); err == nil {

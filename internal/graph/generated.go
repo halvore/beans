@@ -202,11 +202,12 @@ type ComplexityRoot struct {
 	}
 
 	Worktree struct {
-		Beans  func(childComplexity int) int
-		Branch func(childComplexity int) int
-		ID     func(childComplexity int) int
-		Name   func(childComplexity int) int
-		Path   func(childComplexity int) int
+		Beans       func(childComplexity int) int
+		Branch      func(childComplexity int) int
+		Description func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Path        func(childComplexity int) int
 	}
 }
 
@@ -1103,6 +1104,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Worktree.Branch(childComplexity), true
+	case "Worktree.description":
+		if e.complexity.Worktree.Description == nil {
+			break
+		}
+
+		return e.complexity.Worktree.Description(childComplexity), true
 	case "Worktree.id":
 		if e.complexity.Worktree.ID == nil {
 			break
@@ -4641,6 +4648,8 @@ func (ec *executionContext) fieldContext_Mutation_createWorktree(ctx context.Con
 				return ec.fieldContext_Worktree_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Worktree_name(ctx, field)
+			case "description":
+				return ec.fieldContext_Worktree_description(ctx, field)
 			case "branch":
 				return ec.fieldContext_Worktree_branch(ctx, field)
 			case "path":
@@ -5411,6 +5420,8 @@ func (ec *executionContext) fieldContext_Query_worktrees(_ context.Context, fiel
 				return ec.fieldContext_Worktree_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Worktree_name(ctx, field)
+			case "description":
+				return ec.fieldContext_Worktree_description(ctx, field)
 			case "branch":
 				return ec.fieldContext_Worktree_branch(ctx, field)
 			case "path":
@@ -6145,6 +6156,8 @@ func (ec *executionContext) fieldContext_Subscription_worktreesChanged(_ context
 				return ec.fieldContext_Worktree_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Worktree_name(ctx, field)
+			case "description":
+				return ec.fieldContext_Worktree_description(ctx, field)
 			case "branch":
 				return ec.fieldContext_Worktree_branch(ctx, field)
 			case "path":
@@ -6304,6 +6317,35 @@ func (ec *executionContext) _Worktree_name(ctx context.Context, field graphql.Co
 }
 
 func (ec *executionContext) fieldContext_Worktree_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Worktree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Worktree_description(ctx context.Context, field graphql.CollectedField, obj *model.Worktree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Worktree_description,
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Worktree_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Worktree",
 		Field:      field,
@@ -10002,6 +10044,8 @@ func (ec *executionContext) _Worktree(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "name":
 			out.Values[i] = ec._Worktree_name(ctx, field, obj)
+		case "description":
+			out.Values[i] = ec._Worktree_description(ctx, field, obj)
 		case "branch":
 			out.Values[i] = ec._Worktree_branch(ctx, field, obj)
 			if out.Values[i] == graphql.Null {

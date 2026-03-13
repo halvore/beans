@@ -8,6 +8,7 @@ export const MAIN_WORKSPACE_ID = '__main__';
 export interface Worktree {
   id: string;
   name: string | null;
+  description: string | null;
   branch: string;
   path: string;
 }
@@ -15,6 +16,7 @@ export interface Worktree {
 const WORKTREE_FIELDS = `
   id
   name
+  description
   branch
   path
 `;

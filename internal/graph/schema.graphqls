@@ -475,6 +475,8 @@ type Worktree {
   id: ID!
   "Human-readable name"
   name: String
+  "Auto-generated summary of what this workspace is doing"
+  description: String
   "Git branch name"
   branch: String!
   "Filesystem path to the worktree"

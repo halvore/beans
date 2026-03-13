@@ -10,6 +10,11 @@ import (
 // for the given beanID. Return "" to skip injection.
 type ContextProvider func(beanID string) string
 
+// OnFirstResponseFunc is called after an agent session completes its first turn.
+// Receives the beanID (which is the worktree ID for workspace agents) and
+// the conversation messages so far.
+type OnFirstResponseFunc func(beanID string, messages []Message)
+
 // DefaultMode controls the initial mode for new agent sessions.
 type DefaultMode string
 
@@ -26,6 +31,7 @@ type Manager struct {
 	processes             map[string]*runningProcess
 	store                 *store // JSONL persistence (nil if no beansDir)
 	contextProvider       ContextProvider
+	onFirstResponse       OnFirstResponseFunc
 	defaultMode DefaultMode
 
 	subMu       sync.Mutex
@@ -62,6 +68,12 @@ func NewManager(beansDir string, contextProvider ContextProvider, defaultMode ..
 	}
 
 	return m
+}
+
+// SetOnFirstResponse registers a callback that fires after an agent's first turn completes.
+// Must be called during initialization, before any messages are sent.
+func (m *Manager) SetOnFirstResponse(fn OnFirstResponseFunc) {
+	m.onFirstResponse = fn
 }
 
 // GetSession returns a snapshot of the session for the given beanID, or nil.

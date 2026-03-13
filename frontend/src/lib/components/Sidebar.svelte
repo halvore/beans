@@ -12,6 +12,7 @@
   interface WorkspaceItem {
     id: string;
     label: string;
+    description: string | null;
     beans: Bean[];
   }
 
@@ -20,13 +21,14 @@
     return beansStore.all.filter((b) => b.worktreeId === worktreeId);
   }
 
-  const mainWorkspace: WorkspaceItem = $derived({ id: MAIN_WORKSPACE_ID, label: configStore.mainBranch, beans: [] });
+  const mainWorkspace: WorkspaceItem = $derived({ id: MAIN_WORKSPACE_ID, label: configStore.mainBranch, description: null, beans: [] });
 
   const workspaceItems = $derived([
     mainWorkspace,
     ...worktreeStore.worktrees.map((wt): WorkspaceItem => ({
       id: wt.id,
       label: wt.name ?? wt.branch,
+      description: wt.description,
       beans: beansForWorktree(wt.id)
     }))
   ]);
@@ -125,7 +127,12 @@
                 : 'text-text-muted hover:text-text'
             ]}
           >
-            <span class="min-w-0 flex-1 truncate">{item.label}</span>
+            <div class="min-w-0 flex-1">
+              <span class="block truncate">{item.label}</span>
+              {#if item.description}
+                <span class="block truncate text-xs font-normal text-text-faint">{item.description}</span>
+              {/if}
+            </div>
             <div class="relative ml-auto h-4 w-4 shrink-0">
               {#if agentStatusesStore.isRunning(item.id)}
                 <div class="loader absolute inset-0" transition:fade={{ duration: 200 }}></div>

@@ -306,6 +306,8 @@ type Worktree struct {
 	ID string `json:"id"`
 	// Human-readable name
 	Name *string `json:"name,omitempty"`
+	// Auto-generated summary of what this workspace is doing
+	Description *string `json:"description,omitempty"`
 	// Git branch name
 	Branch string `json:"branch"`
 	// Filesystem path to the worktree
