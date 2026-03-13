@@ -146,8 +146,8 @@
   }
 </script>
 
-<div class="flex min-h-0 flex-1 justify-center overflow-x-auto bg-surface-alt px-4 pt-4">
-  <div class="flex w-full max-w-[1280px] min-w-0">
+<div class="flex min-h-0 flex-1 overflow-x-auto bg-surface-alt px-4 pt-4">
+  <div class="flex w-full max-w-4xl min-w-0">
   {#each columns as col (col.status)}
     {@const beans = beansForStatus(col.status)}
     <div class="flex min-w-50 flex-1 flex-col" data-status={col.status}>

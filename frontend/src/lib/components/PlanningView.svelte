@@ -1,44 +1,16 @@
 <script lang="ts">
   import { beansStore } from '$lib/beans.svelte';
-  import { AgentChatStore } from '$lib/agentChat.svelte';
-  import { changesStore } from '$lib/changes.svelte';
   import { ui } from '$lib/uiState.svelte';
 
   let { planningView }: { planningView: 'backlog' | 'board' } = $props();
   import { backlogDrag } from '$lib/backlogDrag.svelte';
   import { matchesFilter } from '$lib/filter';
-  import { onDestroy } from 'svelte';
   import BeanItem from '$lib/components/BeanItem.svelte';
   import BoardView from '$lib/components/BoardView.svelte';
   import BeanPane from '$lib/components/BeanPane.svelte';
   import SplitPane from '$lib/components/SplitPane.svelte';
-  import { configStore } from '$lib/config.svelte';
-  import AgentChat from '$lib/components/AgentChat.svelte';
-  import ChangesPane from '$lib/components/ChangesPane.svelte';
   import FilterInput from '$lib/components/FilterInput.svelte';
-
-  import TerminalPane from '$lib/components/TerminalPane.svelte';
   import ViewToolbar from '$lib/components/ViewToolbar.svelte';
-  import AgentActions from '$lib/components/AgentActions.svelte';
-
-  const CENTRAL_SESSION_ID = '__central__';
-
-  const agentStore = new AgentChatStore();
-
-  $effect(() => {
-    agentStore.subscribe(CENTRAL_SESSION_ID);
-  });
-
-  $effect(() => {
-    changesStore.startPolling();
-    return () => changesStore.stopPolling();
-  });
-
-  onDestroy(() => {
-    agentStore.unsubscribe();
-  });
-
-  const agentBusy = $derived(agentStore.session?.status === 'RUNNING');
 
   let filterInput = $state<FilterInput | null>(null);
 
@@ -79,7 +51,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="flex h-full flex-col">
-  <ViewToolbar showAgentToggle agentActive={ui.showPlanningChat} onToggleAgent={() => ui.togglePlanningChat()}>
+  <ViewToolbar showPanelToggles={false}>
     <div class="flex">
       <button
         onclick={() => ui.navigateToPlanningView('backlog')}
@@ -103,16 +75,13 @@
     <div class="mx-3 w-60">
       <FilterInput bind:this={filterInput} />
     </div>
-    <button class="btn-primary" onclick={() => ui.openCreateForm()}>+ New Bean</button>
     {#snippet right()}
-      <AgentActions beanId={CENTRAL_SESSION_ID} {agentBusy} />
+      <button class="btn-primary" onclick={() => ui.openCreateForm()}>+ New Bean</button>
     {/snippet}
   </ViewToolbar>
 
-  <!-- Layout: [ Backlog/Board | Detail? | Changes? | Agent? | Terminal? ] -->
   <div class="flex min-h-0 flex-1 overflow-hidden">
-    {#snippet mainPanel()}
-      {#snippet backlogBoard()}
+    {#snippet backlogBoard()}
         <div class="flex h-full flex-col bg-surface">
           {#if planningView === 'backlog'}
             <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -189,45 +158,5 @@
           }
         ]}
       />
-    {/snippet}
-
-    {#snippet changesPanel()}
-      <ChangesPane />
-    {/snippet}
-
-    {#snippet agentPanel()}
-      <AgentChat beanId={CENTRAL_SESSION_ID} store={agentStore} />
-    {/snippet}
-
-    {#snippet terminalPanel()}
-      {#if ui.terminalInitialized}
-        <TerminalPane sessionId={CENTRAL_SESSION_ID} />
-      {/if}
-    {/snippet}
-
-    <SplitPane
-      direction="horizontal"
-      panels={[
-        {
-          content: agentPanel,
-          size: 420,
-          collapsed: !configStore.agentEnabled || !ui.showPlanningChat,
-          persistKey: 'planning-agent'
-        },
-        { content: mainPanel },
-        {
-          content: changesPanel,
-          size: 420,
-          collapsed: !configStore.agentEnabled || !ui.showChanges,
-          persistKey: 'planning-changes'
-        },
-        {
-          content: terminalPanel,
-          size: 480,
-          collapsed: !configStore.agentEnabled || !ui.showTerminal,
-          persistKey: 'planning-terminal'
-        }
-      ]}
-    />
   </div>
 </div>

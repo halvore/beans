@@ -5,7 +5,7 @@
   import { page } from '$app/state';
   import { onMount, onDestroy } from 'svelte';
   import { beansStore } from '$lib/beans.svelte';
-  import { worktreeStore } from '$lib/worktrees.svelte';
+  import { worktreeStore, MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
   import { agentStatusesStore } from '$lib/agentStatuses.svelte';
   import { configStore } from '$lib/config.svelte';
   import { ui } from '$lib/uiState.svelte';
@@ -39,7 +39,7 @@
     if (
       !ui.isPlanning &&
       worktreeStore.initialized &&
-      (!configStore.agentEnabled || !worktreeStore.hasWorktree(ui.activeView))
+      (!configStore.agentEnabled || (ui.activeView !== MAIN_WORKSPACE_ID && !worktreeStore.hasWorktree(ui.activeView)))
     ) {
       ui.navigateTo('planning');
     }

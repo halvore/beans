@@ -2,7 +2,7 @@
   import { AgentChatStore } from '$lib/agentChat.svelte';
   import { changesStore } from '$lib/changes.svelte';
   import { ui } from '$lib/uiState.svelte';
-  import { worktreeStore } from '$lib/worktrees.svelte';
+  import { worktreeStore, MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
   import { onDestroy } from 'svelte';
   import SplitPane from './SplitPane.svelte';
   import AgentChat from './AgentChat.svelte';
@@ -36,7 +36,9 @@
   const agentBusy = $derived(agentStore.session?.status === 'RUNNING');
 
   const worktreePath = $derived(
-    worktreeStore.worktrees.find((wt) => wt.id === worktreeId)?.path
+    worktreeId === MAIN_WORKSPACE_ID
+      ? undefined
+      : worktreeStore.worktrees.find((wt) => wt.id === worktreeId)?.path
   );
 </script>
 

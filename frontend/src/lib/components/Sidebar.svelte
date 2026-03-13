@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
-  import { worktreeStore } from '$lib/worktrees.svelte';
+  import { worktreeStore, MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
   import { agentStatusesStore } from '$lib/agentStatuses.svelte';
   import { configStore } from '$lib/config.svelte';
   import { ui } from '$lib/uiState.svelte';
@@ -13,14 +13,15 @@
     label: string;
   }
 
-  const workspaceItems = $derived(
-    worktreeStore.worktrees.map((wt): WorkspaceItem => {
-      return {
-        id: wt.id,
-        label: wt.name ?? wt.branch
-      };
-    })
-  );
+  const mainWorkspace: WorkspaceItem = { id: MAIN_WORKSPACE_ID, label: 'main' };
+
+  const workspaceItems = $derived([
+    mainWorkspace,
+    ...worktreeStore.worktrees.map((wt): WorkspaceItem => ({
+      id: wt.id,
+      label: wt.name ?? wt.branch
+    }))
+  ]);
 
   let confirmingRemoveId = $state<string | null>(null);
 
@@ -112,7 +113,7 @@
           <div class="relative ml-auto h-4 w-4 shrink-0">
             {#if agentStatusesStore.isRunning(item.id)}
               <div class="loader absolute inset-0" transition:fade={{ duration: 200 }}></div>
-            {:else}
+            {:else if item.id !== MAIN_WORKSPACE_ID}
               <span
                 role="button"
                 tabindex="-1"

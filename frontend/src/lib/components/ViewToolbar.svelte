@@ -10,15 +10,16 @@
     children?: Snippet;
     right?: Snippet;
     showAgentToggle?: boolean;
+    showPanelToggles?: boolean;
     agentActive?: boolean;
     onToggleAgent?: () => void;
   }
 
-  let { children, right, showAgentToggle = false, agentActive = false, onToggleAgent }: Props = $props();
+  let { children, right, showAgentToggle = false, showPanelToggles = true, agentActive = false, onToggleAgent }: Props = $props();
 </script>
 
 <div class="toolbar bg-surface-alt">
-  {#if configStore.agentEnabled}
+  {#if configStore.agentEnabled && showPanelToggles}
     {#if showAgentToggle && onToggleAgent}
       <button
         onclick={onToggleAgent}

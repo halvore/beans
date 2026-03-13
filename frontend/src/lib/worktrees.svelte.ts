@@ -2,6 +2,8 @@ import { gql } from 'urql';
 import { pipe, subscribe } from 'wonka';
 import { client } from './graphqlClient';
 
+export const MAIN_WORKSPACE_ID = '__main__';
+
 export interface Worktree {
   id: string;
   name: string | null;
