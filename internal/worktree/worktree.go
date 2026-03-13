@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/hmans/beans/pkg/bean"
 )
 
 const branchPrefix = "beans/"
@@ -164,13 +162,13 @@ func (m *Manager) Create(name string) (*Worktree, error) {
 		return nil, fmt.Errorf("worktree name must not be empty")
 	}
 
-	// Generate a unique ID with "wt-" prefix
-	id := "wt-" + bean.NewID("", 4)
+	// Use the name as the worktree ID so branch and directory match
+	id := name
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	branch := branchPrefix + id
+	branch := branchPrefix + name
 	worktreePath := m.worktreePath(id)
 
 	// Check if the worktree path already exists

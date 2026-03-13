@@ -157,14 +157,14 @@ func TestCreateAndList(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if !strings.HasPrefix(wt.ID, "wt-") {
-		t.Errorf("ID = %q, want wt-* prefix", wt.ID)
+	if wt.ID != "test-worktree" {
+		t.Errorf("ID = %q, want %q", wt.ID, "test-worktree")
 	}
 	if wt.Name != "test-worktree" {
 		t.Errorf("Name = %q, want %q", wt.Name, "test-worktree")
 	}
-	if !strings.HasPrefix(wt.Branch, "beans/wt-") {
-		t.Errorf("Branch = %q, want beans/wt-* prefix", wt.Branch)
+	if wt.Branch != "beans/test-worktree" {
+		t.Errorf("Branch = %q, want %q", wt.Branch, "beans/test-worktree")
 	}
 
 	expectedPath := filepath.Join(beansDir, ".worktrees", wt.ID)
