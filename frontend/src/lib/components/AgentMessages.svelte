@@ -139,7 +139,6 @@
                   <span>{msg.content}</span>
                 </button>
               {:else}
-                <span class="shrink-0 select-none">&middot;</span>
                 <span>{msg.content}</span>
               {/if}
             </div>
@@ -161,23 +160,20 @@
             <p class="whitespace-pre-wrap text-text">{msg.content}</p>
           </div>
         {:else if isRunning}
-          <div class="flex gap-2 text-text-muted">
-            <span class="shrink-0 select-none">&middot;</span>
+          <div class="text-text-muted">
             <span class="animate-pulse">{activityLabel}</span>
           </div>
         {/if}
       {/each}
 
       {#if isRunning && subagentActivities.length === 0 && (messages.length === 0 || messages[messages.length - 1].role === 'USER')}
-        <div class="flex gap-2 text-text-muted">
-          <span class="shrink-0 select-none">&middot;</span>
+        <div class="text-text-muted">
           <span class="animate-pulse">{activityLabel}</span>
         </div>
       {/if}
 
       {#each subagentActivities as activity (activity.taskId)}
-        <div class="flex gap-2 text-text-faint">
-          <span class="shrink-0 select-none">&middot;</span>
+        <div class="text-text-faint">
           <span class="animate-pulse">
             <span class="text-text-muted">#{activity.index}</span>
             {activity.description || 'Subagent'}{activity.currentTool ? ` — ${activity.currentTool}` : ''}
