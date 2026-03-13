@@ -108,57 +108,68 @@
         </button>
       </div>
 
+      <div class="flex flex-col gap-1">
       {#each workspaceItems as item (item.id)}
-        <button
-          onclick={() => ui.navigateTo(item.id)}
+        <div
           class={[
-            'group flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors',
+            'rounded-md border transition-colors',
             ui.activeView === item.id
-              ? 'bg-surface font-medium text-text'
-              : 'text-text-muted hover:bg-surface hover:text-text'
+              ? 'border-accent/30 bg-surface'
+              : 'border-border/50 bg-surface/50 hover:border-border hover:bg-surface'
           ]}
         >
-          <span class="min-w-0 flex-1 truncate">{item.label}</span>
-          <div class="relative ml-auto h-4 w-4 shrink-0">
-            {#if agentStatusesStore.isRunning(item.id)}
-              <div class="loader absolute inset-0" transition:fade={{ duration: 200 }}></div>
-            {:else if item.id !== MAIN_WORKSPACE_ID}
-              <span
-                role="button"
-                tabindex="-1"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  confirmingRemoveId = item.id;
-                }}
-                class="absolute inset-0 flex cursor-pointer items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                aria-label="Destroy worktree"
-              >
-                <span class="icon-[uil--archive] block size-3.5"></span>
-              </span>
-            {/if}
-          </div>
-        </button>
+          <button
+            onclick={() => ui.navigateTo(item.id)}
+            class={[
+              'group flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+              ui.activeView === item.id
+                ? 'font-medium text-text'
+                : 'text-text-muted hover:text-text'
+            ]}
+          >
+            <span class="min-w-0 flex-1 truncate">{item.label}</span>
+            <div class="relative ml-auto h-4 w-4 shrink-0">
+              {#if agentStatusesStore.isRunning(item.id)}
+                <div class="loader absolute inset-0" transition:fade={{ duration: 200 }}></div>
+              {:else if item.id !== MAIN_WORKSPACE_ID}
+                <span
+                  role="button"
+                  tabindex="-1"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    confirmingRemoveId = item.id;
+                  }}
+                  class="absolute inset-0 flex cursor-pointer items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                  aria-label="Destroy worktree"
+                >
+                  <span class="icon-[uil--archive] block size-3.5"></span>
+                </span>
+              {/if}
+            </div>
+          </button>
 
-        {#if item.beans.length > 0}
-          <div class="mt-0.5 mb-1 ml-5 mr-1 flex flex-col gap-0.5">
-            {#each item.beans as wtBean (wtBean.id)}
-              <button
-                onclick={() => {
-                  ui.navigateTo(item.id);
-                  ui.selectBeanById(wtBean.id);
-                }}
-                class={[
-                  'flex min-w-0 cursor-pointer items-center gap-1.5 rounded-xs border-l-2 bg-surface px-2 py-1 text-left transition-colors hover:bg-surface-alt',
-                  typeBorders[wtBean.type] ?? 'border-l-type-task-border'
-                ]}
-              >
-                <code class="shrink-0 text-[9px] text-text-faint">{wtBean.id.slice(-4)}</code>
-                <span class="min-w-0 flex-1 truncate text-xs text-text-muted">{wtBean.title}</span>
-              </button>
-            {/each}
-          </div>
-        {/if}
+          {#if item.beans.length > 0}
+            <div class="flex flex-col gap-0.5 px-2 pb-2">
+              {#each item.beans as wtBean (wtBean.id)}
+                <button
+                  onclick={() => {
+                    ui.navigateTo(item.id);
+                    ui.selectBeanById(wtBean.id);
+                  }}
+                  class={[
+                    'flex min-w-0 cursor-pointer items-center gap-1.5 rounded-xs border-l-2 px-2 py-1 text-left transition-colors hover:bg-surface-alt',
+                    typeBorders[wtBean.type] ?? 'border-l-type-task-border'
+                  ]}
+                >
+                  <code class="shrink-0 text-[9px] text-text-faint">{wtBean.id.slice(-4)}</code>
+                  <span class="min-w-0 flex-1 truncate text-xs text-text-muted">{wtBean.title}</span>
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
       {/each}
+      </div>
     {/if}
   </div>
 
