@@ -212,6 +212,22 @@ export class AgentChatStore {
     this.sending = true;
     this.error = null;
 
+    // Optimistically append user message so it appears instantly
+    if (this.session) {
+      this.session = {
+        ...this.session,
+        messages: [
+          ...this.session.messages,
+          {
+            role: 'USER',
+            content: message,
+            images: [],
+            diff: null
+          }
+        ]
+      };
+    }
+
     const result = await client
       .mutation(SEND_AGENT_MESSAGE, { beanId, message, images: images ?? null })
       .toPromise();
