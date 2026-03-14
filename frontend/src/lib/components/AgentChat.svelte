@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AgentChatStore } from '$lib/agentChat.svelte';
+  import { pickThinkingPhrase } from '$lib/thinkingPhrases';
   import { onDestroy } from 'svelte';
   import AgentMessages from './AgentMessages.svelte';
   import PendingInteraction from './PendingInteraction.svelte';
@@ -32,7 +33,11 @@
   const systemStatus = $derived(store.session?.systemStatus ?? null);
   const planMode = $derived(store.session?.planMode ?? false);
   const agentMode = $derived<'plan' | 'act'>(planMode ? 'plan' : 'act');
-  const activityLabel = $derived(systemStatus ? `${systemStatus}...` : 'Thinking...');
+  let thinkingPhrase = $state(pickThinkingPhrase());
+  $effect(() => {
+    if (isRunning) thinkingPhrase = pickThinkingPhrase();
+  });
+  const activityLabel = $derived(systemStatus ? `${systemStatus}...` : thinkingPhrase);
   const pendingInteraction = $derived(store.session?.pendingInteraction ?? null);
   const subagentActivities = $derived(store.session?.subagentActivities ?? []);
 
