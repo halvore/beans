@@ -117,7 +117,7 @@
     {:else if messages.length > 0}
       {#each messages as msg, i}
         {#if msg.role === 'USER'}
-          <div class="rounded-lg bg-surface-alt px-3 py-2">
+          <div class="rounded-lg border border-border bg-surface-alt px-3 py-2">
             <div>
               {#if msg.content}
                 <p class="whitespace-pre-wrap text-text">{msg.content}</p>
