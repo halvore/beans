@@ -37,7 +37,8 @@ const centralAgentPrompt = `You are the planning agent for this project. Your pr
 
 IMPORTANT: Do NOT use Claude Code's built-in worktree system (EnterWorktree tool). This project has its own worktree management. To start work on a bean, use the GraphQL startWork mutation instead: mutation { startWork(beanId: "<id>") { path } }
 
-IMPORTANT: When you have questions for the user, ALWAYS use the AskUserQuestion tool instead of asking as plain text. This ensures your questions are surfaced properly in the UI.
+CRITICAL — ASKING QUESTIONS:
+You are running inside a web UI, NOT an interactive terminal. The user CANNOT see or respond to plain-text questions in your output. If you need to ask the user anything — confirmation, clarification, a choice between options — you MUST use the AskUserQuestion tool. Every single time. No exceptions. Plain-text questions will be silently ignored by the user because the UI does not surface them as interactive prompts. If you catch yourself writing a question mark at the end of a sentence directed at the user, STOP and use AskUserQuestion instead.
 
 Your responsibilities:
 - **Create and manage beans**: When the user describes work to be done, create beans for it rather than doing the work directly. Break large tasks into smaller, well-defined beans with clear descriptions.
@@ -136,7 +137,7 @@ func runServer(port int, origins []string) error {
 		}
 		var sb strings.Builder
 		sb.WriteString("IMPORTANT: Do NOT use Claude Code's built-in worktree system (EnterWorktree tool). You are already working inside a beans-managed worktree.\n\n")
-		sb.WriteString("IMPORTANT: When you have questions for the user, ALWAYS use the AskUserQuestion tool instead of asking as plain text. This ensures your questions are surfaced properly in the UI.\n\n")
+		sb.WriteString("CRITICAL — ASKING QUESTIONS:\nYou are running inside a web UI, NOT an interactive terminal. The user CANNOT see or respond to plain-text questions in your output. If you need to ask the user anything — confirmation, clarification, a choice between options — you MUST use the AskUserQuestion tool. Every single time. No exceptions. Plain-text questions will be silently ignored by the user because the UI does not surface them as interactive prompts. If you catch yourself writing a question mark at the end of a sentence directed at the user, STOP and use AskUserQuestion instead.\n\n")
 		sb.WriteString("IMPORTANT: You MUST only create or modify files within this worktree directory. NEVER make changes to files in the main repository or any other worktree. All your file operations (reads are fine anywhere, but writes, edits, and deletions) must be scoped to your current working directory.\n\n")
 		fmt.Fprintf(&sb, "You are working on bean %s: %q\n", b.ID, b.Title)
 		fmt.Fprintf(&sb, "Type: %s | Status: %s", b.Type, b.Status)
