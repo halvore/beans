@@ -223,6 +223,49 @@ func HasUnmergedCommits(dir, baseBranch string) bool {
 	return count > 0
 }
 
+// CommitsBehind returns the number of commits on baseBranch that are not
+// reachable from HEAD (i.e., how far behind the worktree branch is).
+func CommitsBehind(dir, baseBranch string) int {
+	if baseBranch == "" {
+		remote, ok := DefaultRemoteBranch(dir, "origin")
+		if !ok {
+			return 0
+		}
+		baseBranch = remote
+	}
+	cmd := exec.Command("git", "-C", dir, "rev-list", "--count", "HEAD.."+baseBranch)
+	out, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+	count, _ := strconv.Atoi(strings.TrimSpace(string(out)))
+	return count
+}
+
+// HasConflicts checks whether rebasing the current branch onto baseBranch
+// would produce merge conflicts, without actually modifying the working tree.
+// It performs a tree-level merge in memory using git merge-tree.
+func HasConflicts(dir, baseBranch string) bool {
+	if baseBranch == "" {
+		remote, ok := DefaultRemoteBranch(dir, "origin")
+		if !ok {
+			return false
+		}
+		baseBranch = remote
+	}
+	// git merge-tree --write-tree exits 0 if clean, 1 if conflicts
+	cmd := exec.Command("git", "-C", dir, "merge-tree", "--write-tree", "--no-messages", baseBranch, "HEAD")
+	err := cmd.Run()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return true
+		}
+		// Other errors (e.g., git too old) — assume no conflicts
+		return false
+	}
+	return false
+}
+
 // HasChanges returns true if there are any uncommitted changes or untracked files.
 func HasChanges(dir string) bool {
 	changes, err := FileChanges(dir)

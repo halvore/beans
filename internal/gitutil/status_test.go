@@ -494,3 +494,83 @@ func TestParseNumstat(t *testing.T) {
 		})
 	}
 }
+
+func TestCommitsBehind_Zero(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	// Feature branch diverged from main but main has no new commits,
+	// so commitsBehind should be 0.
+	behind := CommitsBehind(dir, "main")
+	if behind != 0 {
+		t.Errorf("expected 0 commits behind, got %d", behind)
+	}
+}
+
+func TestCommitsBehind_NonZero(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	// Add commits to main while on the feature branch
+	gitRun(t, dir, "checkout", "main")
+	if err := os.WriteFile(filepath.Join(dir, "main-update.txt"), []byte("update\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "main-update.txt")
+	gitRun(t, dir, "commit", "-m", "update on main")
+
+	if err := os.WriteFile(filepath.Join(dir, "main-update2.txt"), []byte("update2\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "main-update2.txt")
+	gitRun(t, dir, "commit", "-m", "second update on main")
+
+	gitRun(t, dir, "checkout", "feature")
+
+	behind := CommitsBehind(dir, "main")
+	if behind != 2 {
+		t.Errorf("expected 2 commits behind, got %d", behind)
+	}
+}
+
+func TestHasConflicts_NoConflict(t *testing.T) {
+	dir := initBranchedTestRepo(t)
+
+	// Add a non-conflicting commit to main
+	gitRun(t, dir, "checkout", "main")
+	if err := os.WriteFile(filepath.Join(dir, "other.txt"), []byte("no conflict\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "other.txt")
+	gitRun(t, dir, "commit", "-m", "non-conflicting change")
+
+	gitRun(t, dir, "checkout", "feature")
+
+	if HasConflicts(dir, "main") {
+		t.Error("expected no conflicts")
+	}
+}
+
+func TestHasConflicts_WithConflict(t *testing.T) {
+	dir := initStatusTestRepo(t)
+
+	// Create a branch that modifies README.md
+	gitRun(t, dir, "checkout", "-b", "feature")
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("feature version\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "README.md")
+	gitRun(t, dir, "commit", "-m", "feature change to readme")
+
+	// Also modify README.md on main
+	gitRun(t, dir, "checkout", "main")
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("main version\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "README.md")
+	gitRun(t, dir, "commit", "-m", "main change to readme")
+
+	gitRun(t, dir, "checkout", "feature")
+
+	if !HasConflicts(dir, "main") {
+		t.Error("expected conflicts")
+	}
+}

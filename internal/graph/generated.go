@@ -136,6 +136,11 @@ type ComplexityRoot struct {
 		Type   func(childComplexity int) int
 	}
 
+	BranchStatus struct {
+		CommitsBehind func(childComplexity int) int
+		HasConflicts  func(childComplexity int) int
+	}
+
 	FileChange struct {
 		Additions func(childComplexity int) int
 		Deletions func(childComplexity int) int
@@ -182,6 +187,7 @@ type ComplexityRoot struct {
 		AllFileDiff        func(childComplexity int, filePath string, path *string) int
 		Bean               func(childComplexity int, id string) int
 		Beans              func(childComplexity int, filter *model.BeanFilter) int
+		BranchStatus       func(childComplexity int, path *string) int
 		FileChanges        func(childComplexity int, path *string) int
 		FileDiff           func(childComplexity int, filePath string, staged bool, path *string) int
 		HasDirtyBeans      func(childComplexity int) int
@@ -208,8 +214,10 @@ type ComplexityRoot struct {
 	Worktree struct {
 		Beans              func(childComplexity int) int
 		Branch             func(childComplexity int) int
+		CommitsBehind      func(childComplexity int) int
 		Description        func(childComplexity int) int
 		HasChanges         func(childComplexity int) int
+		HasConflicts       func(childComplexity int) int
 		HasUnmergedCommits func(childComplexity int) int
 		ID                 func(childComplexity int) int
 		Name               func(childComplexity int) int
@@ -264,6 +272,7 @@ type QueryResolver interface {
 	AllFileChanges(ctx context.Context, path *string) ([]*model.FileChange, error)
 	FileDiff(ctx context.Context, filePath string, staged bool, path *string) (string, error)
 	AllFileDiff(ctx context.Context, filePath string, path *string) (string, error)
+	BranchStatus(ctx context.Context, path *string) (*model.BranchStatus, error)
 	HasDirtyBeans(ctx context.Context) (bool, error)
 	AgentActions(ctx context.Context, beanID string) ([]*model.AgentAction, error)
 	ProjectName(ctx context.Context) (string, error)
@@ -669,6 +678,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.BeanChangeEvent.Type(childComplexity), true
 
+	case "BranchStatus.commitsBehind":
+		if e.complexity.BranchStatus.CommitsBehind == nil {
+			break
+		}
+
+		return e.complexity.BranchStatus.CommitsBehind(childComplexity), true
+	case "BranchStatus.hasConflicts":
+		if e.complexity.BranchStatus.HasConflicts == nil {
+			break
+		}
+
+		return e.complexity.BranchStatus.HasConflicts(childComplexity), true
+
 	case "FileChange.additions":
 		if e.complexity.FileChange.Additions == nil {
 			break
@@ -1018,6 +1040,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Beans(childComplexity, args["filter"].(*model.BeanFilter)), true
+	case "Query.branchStatus":
+		if e.complexity.Query.BranchStatus == nil {
+			break
+		}
+
+		args, err := ec.field_Query_branchStatus_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.BranchStatus(childComplexity, args["path"].(*string)), true
 	case "Query.fileChanges":
 		if e.complexity.Query.FileChanges == nil {
 			break
@@ -1143,6 +1176,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Worktree.Branch(childComplexity), true
+	case "Worktree.commitsBehind":
+		if e.complexity.Worktree.CommitsBehind == nil {
+			break
+		}
+
+		return e.complexity.Worktree.CommitsBehind(childComplexity), true
 	case "Worktree.description":
 		if e.complexity.Worktree.Description == nil {
 			break
@@ -1155,6 +1194,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Worktree.HasChanges(childComplexity), true
+	case "Worktree.hasConflicts":
+		if e.complexity.Worktree.HasConflicts == nil {
+			break
+		}
+
+		return e.complexity.Worktree.HasConflicts(childComplexity), true
 	case "Worktree.hasUnmergedCommits":
 		if e.complexity.Worktree.HasUnmergedCommits == nil {
 			break
@@ -1766,6 +1811,17 @@ func (ec *executionContext) field_Query_beans_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["filter"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_branchStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "path", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["path"] = arg0
 	return args, nil
 }
 
@@ -3933,6 +3989,64 @@ func (ec *executionContext) fieldContext_BeanChangeEvent_beanId(_ context.Contex
 	return fc, nil
 }
 
+func (ec *executionContext) _BranchStatus_commitsBehind(ctx context.Context, field graphql.CollectedField, obj *model.BranchStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_BranchStatus_commitsBehind,
+		func(ctx context.Context) (any, error) {
+			return obj.CommitsBehind, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_BranchStatus_commitsBehind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BranchStatus",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BranchStatus_hasConflicts(ctx context.Context, field graphql.CollectedField, obj *model.BranchStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_BranchStatus_hasConflicts,
+		func(ctx context.Context) (any, error) {
+			return obj.HasConflicts, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_BranchStatus_hasConflicts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BranchStatus",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _FileChange_path(ctx context.Context, field graphql.CollectedField, obj *model.FileChange) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4838,6 +4952,10 @@ func (ec *executionContext) fieldContext_Mutation_createWorktree(ctx context.Con
 				return ec.fieldContext_Worktree_hasChanges(ctx, field)
 			case "hasUnmergedCommits":
 				return ec.fieldContext_Worktree_hasUnmergedCommits(ctx, field)
+			case "commitsBehind":
+				return ec.fieldContext_Worktree_commitsBehind(ctx, field)
+			case "hasConflicts":
+				return ec.fieldContext_Worktree_hasConflicts(ctx, field)
 			case "setupStatus":
 				return ec.fieldContext_Worktree_setupStatus(ctx, field)
 			case "setupError":
@@ -5618,6 +5736,10 @@ func (ec *executionContext) fieldContext_Query_worktrees(_ context.Context, fiel
 				return ec.fieldContext_Worktree_hasChanges(ctx, field)
 			case "hasUnmergedCommits":
 				return ec.fieldContext_Worktree_hasUnmergedCommits(ctx, field)
+			case "commitsBehind":
+				return ec.fieldContext_Worktree_commitsBehind(ctx, field)
+			case "hasConflicts":
+				return ec.fieldContext_Worktree_hasConflicts(ctx, field)
 			case "setupStatus":
 				return ec.fieldContext_Worktree_setupStatus(ctx, field)
 			case "setupError":
@@ -5876,6 +5998,53 @@ func (ec *executionContext) fieldContext_Query_allFileDiff(ctx context.Context, 
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_allFileDiff_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_branchStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_branchStatus,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().BranchStatus(ctx, fc.Args["path"].(*string))
+		},
+		nil,
+		ec.marshalNBranchStatus2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐBranchStatus,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_branchStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "commitsBehind":
+				return ec.fieldContext_BranchStatus_commitsBehind(ctx, field)
+			case "hasConflicts":
+				return ec.fieldContext_BranchStatus_hasConflicts(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type BranchStatus", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_branchStatus_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6395,6 +6564,10 @@ func (ec *executionContext) fieldContext_Subscription_worktreesChanged(_ context
 				return ec.fieldContext_Worktree_hasChanges(ctx, field)
 			case "hasUnmergedCommits":
 				return ec.fieldContext_Worktree_hasUnmergedCommits(ctx, field)
+			case "commitsBehind":
+				return ec.fieldContext_Worktree_commitsBehind(ctx, field)
+			case "hasConflicts":
+				return ec.fieldContext_Worktree_hasConflicts(ctx, field)
 			case "setupStatus":
 				return ec.fieldContext_Worktree_setupStatus(ctx, field)
 			case "setupError":
@@ -6776,6 +6949,64 @@ func (ec *executionContext) _Worktree_hasUnmergedCommits(ctx context.Context, fi
 }
 
 func (ec *executionContext) fieldContext_Worktree_hasUnmergedCommits(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Worktree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Worktree_commitsBehind(ctx context.Context, field graphql.CollectedField, obj *model.Worktree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Worktree_commitsBehind,
+		func(ctx context.Context) (any, error) {
+			return obj.CommitsBehind, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Worktree_commitsBehind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Worktree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Worktree_hasConflicts(ctx context.Context, field graphql.CollectedField, obj *model.Worktree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Worktree_hasConflicts,
+		func(ctx context.Context) (any, error) {
+			return obj.HasConflicts, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Worktree_hasConflicts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Worktree",
 		Field:      field,
@@ -9690,6 +9921,50 @@ func (ec *executionContext) _BeanChangeEvent(ctx context.Context, sel ast.Select
 	return out
 }
 
+var branchStatusImplementors = []string{"BranchStatus"}
+
+func (ec *executionContext) _BranchStatus(ctx context.Context, sel ast.SelectionSet, obj *model.BranchStatus) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, branchStatusImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BranchStatus")
+		case "commitsBehind":
+			out.Values[i] = ec._BranchStatus_commitsBehind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hasConflicts":
+			out.Values[i] = ec._BranchStatus_hasConflicts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var fileChangeImplementors = []string{"FileChange"}
 
 func (ec *executionContext) _FileChange(ctx context.Context, sel ast.SelectionSet, obj *model.FileChange) graphql.Marshaler {
@@ -10170,6 +10445,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "branchStatus":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_branchStatus(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "hasDirtyBeans":
 			field := field
 
@@ -10455,6 +10752,16 @@ func (ec *executionContext) _Worktree(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "hasUnmergedCommits":
 			out.Values[i] = ec._Worktree_hasUnmergedCommits(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "commitsBehind":
+			out.Values[i] = ec._Worktree_commitsBehind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hasConflicts":
+			out.Values[i] = ec._Worktree_hasConflicts(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -11220,6 +11527,20 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNBranchStatus2githubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐBranchStatus(ctx context.Context, sel ast.SelectionSet, v model.BranchStatus) graphql.Marshaler {
+	return ec._BranchStatus(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNBranchStatus2ᚖgithubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐBranchStatus(ctx context.Context, sel ast.SelectionSet, v *model.BranchStatus) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BranchStatus(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNChangeType2githubᚗcomᚋhmansᚋbeansᚋinternalᚋgraphᚋmodelᚐChangeType(ctx context.Context, v any) (model.ChangeType, error) {

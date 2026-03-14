@@ -48,6 +48,12 @@ type Query {
   allFileDiff(filePath: String!, path: String): String!
 
   """
+  Get branch status for a worktree: how far behind the base branch and whether
+  a rebase would conflict. If path is null, uses the project root.
+  """
+  branchStatus(path: String): BranchStatus!
+
+  """
   Whether any beans have unsaved runtime changes
   """
   hasDirtyBeans: Boolean!
@@ -499,6 +505,10 @@ type Worktree {
   hasChanges: Boolean!
   "Whether the worktree has commits not yet merged into the base branch"
   hasUnmergedCommits: Boolean!
+  "Number of commits on the base branch that are not in this worktree branch"
+  commitsBehind: Int!
+  "Whether rebasing onto the base branch would produce merge conflicts"
+  hasConflicts: Boolean!
   "Post-creation setup status (null if no setup configured)"
   setupStatus: WorktreeSetupStatus
   "Error message if setup failed"
@@ -512,6 +522,16 @@ enum WorktreeSetupStatus {
   RUNNING
   DONE
   FAILED
+}
+
+"""
+Branch status relative to the base branch
+"""
+type BranchStatus {
+  "Number of commits on the base branch not reachable from this branch"
+  commitsBehind: Int!
+  "Whether rebasing onto the base branch would produce merge conflicts"
+  hasConflicts: Boolean!
 }
 
 """

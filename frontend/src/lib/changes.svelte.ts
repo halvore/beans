@@ -33,18 +33,34 @@ const ALL_FILE_CHANGES_QUERY = gql`
 	}
 `;
 
+const BRANCH_STATUS_QUERY = gql`
+	query BranchStatus($path: String) {
+		branchStatus(path: $path) {
+			commitsBehind
+			hasConflicts
+		}
+	}
+`;
+
+export interface BranchStatus {
+	commitsBehind: number;
+	hasConflicts: boolean;
+}
+
 class ChangesStore {
 	changes = $state<FileChange[]>([]);
 	allChanges = $state<FileChange[]>([]);
+	branchStatus = $state<BranchStatus>({ commitsBehind: 0, hasConflicts: false });
 	loading = $state(false);
 	#intervalId: ReturnType<typeof setInterval> | null = null;
 	#currentPath: string | null = null;
 
 	async fetch(path?: string): Promise<void> {
 		const p = path ?? null;
-		const [result, allResult] = await Promise.all([
+		const [result, allResult, branchResult] = await Promise.all([
 			client.query(FILE_CHANGES_QUERY, { path: p }).toPromise(),
-			client.query(ALL_FILE_CHANGES_QUERY, { path: p }).toPromise()
+			client.query(ALL_FILE_CHANGES_QUERY, { path: p }).toPromise(),
+			client.query(BRANCH_STATUS_QUERY, { path: p }).toPromise()
 		]);
 
 		if (result.error) {
@@ -57,6 +73,12 @@ class ChangesStore {
 			console.error('Failed to fetch all file changes:', allResult.error);
 		} else {
 			this.allChanges = allResult.data?.allFileChanges ?? [];
+		}
+
+		if (branchResult.error) {
+			console.error('Failed to fetch branch status:', branchResult.error);
+		} else if (branchResult.data?.branchStatus) {
+			this.branchStatus = branchResult.data.branchStatus;
 		}
 	}
 

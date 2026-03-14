@@ -183,6 +183,14 @@ type BodyModification struct {
 	Append *string `json:"append,omitempty"`
 }
 
+// Branch status relative to the base branch
+type BranchStatus struct {
+	// Number of commits on the base branch not reachable from this branch
+	CommitsBehind int `json:"commitsBehind"`
+	// Whether rebasing onto the base branch would produce merge conflicts
+	HasConflicts bool `json:"hasConflicts"`
+}
+
 // Input for creating a new bean
 type CreateBeanInput struct {
 	// Bean title (required)
@@ -322,6 +330,10 @@ type Worktree struct {
 	HasChanges bool `json:"hasChanges"`
 	// Whether the worktree has commits not yet merged into the base branch
 	HasUnmergedCommits bool `json:"hasUnmergedCommits"`
+	// Number of commits on the base branch that are not in this worktree branch
+	CommitsBehind int `json:"commitsBehind"`
+	// Whether rebasing onto the base branch would produce merge conflicts
+	HasConflicts bool `json:"hasConflicts"`
 	// Post-creation setup status (null if no setup configured)
 	SetupStatus *WorktreeSetupStatus `json:"setupStatus,omitempty"`
 	// Error message if setup failed

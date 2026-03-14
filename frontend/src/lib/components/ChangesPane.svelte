@@ -2,14 +2,49 @@
   import { gql } from 'urql';
   import { changesStore, type FileChange } from '$lib/changes.svelte';
   import { client } from '$lib/graphqlClient';
+  import { MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
 
   import SplitPane from '$lib/components/SplitPane.svelte';
 
+  const SEND_AGENT_MESSAGE = gql`
+    mutation SendAgentMessage($beanId: ID!, $message: String!) {
+      sendAgentMessage(beanId: $beanId, message: $message)
+    }
+  `;
+
   interface Props {
     path?: string;
+    worktreeId?: string;
   }
 
-  let { path }: Props = $props();
+  let { path, worktreeId }: Props = $props();
+
+  const isWorktree = $derived(worktreeId != null && worktreeId !== MAIN_WORKSPACE_ID);
+  const branchStatus = $derived(changesStore.branchStatus);
+
+  const changeSummary = $derived.by(() => {
+    const counts = { added: 0, modified: 0, deleted: 0, renamed: 0 };
+    for (const c of changesStore.allChanges) {
+      if (c.status === 'added' || c.status === 'untracked') counts.added++;
+      else if (c.status === 'deleted') counts.deleted++;
+      else if (c.status === 'renamed') counts.renamed++;
+      else counts.modified++;
+    }
+    return counts;
+  });
+
+  let rebaseRequested = $state(false);
+
+  async function requestRebase() {
+    if (!worktreeId) return;
+    rebaseRequested = true;
+    await client
+      .mutation(SEND_AGENT_MESSAGE, {
+        beanId: worktreeId,
+        message: 'Please rebase this branch against the main branch and resolve any conflicts.'
+      })
+      .toPromise();
+  }
 
   type Tab = 'unstaged' | 'all';
   let activeTab = $state<Tab>('all');
@@ -342,7 +377,59 @@
   </div>
 {/snippet}
 
+{#snippet branchStatusBar()}
+  <div class="flex flex-col gap-1.5 border-b border-border px-3 pt-3 pb-2 text-xs">
+    {#if branchStatus.commitsBehind > 0}
+      <div class="flex items-center justify-between gap-2">
+        <span class={['flex items-center gap-1.5', branchStatus.hasConflicts ? 'text-danger' : 'text-warning']}>
+          {#if branchStatus.hasConflicts}
+            <span class="iconify lucide--alert-triangle size-3.5 shrink-0"></span>
+          {:else}
+            <span class="iconify lucide--git-branch size-3.5 shrink-0"></span>
+          {/if}
+          {branchStatus.commitsBehind} commit{branchStatus.commitsBehind === 1 ? '' : 's'} behind
+          {#if branchStatus.hasConflicts}
+            <span class="text-text-muted">(conflicts expected)</span>
+          {/if}
+        </span>
+        <button
+          class="btn-tab-sm cursor-pointer whitespace-nowrap"
+          onclick={requestRebase}
+          disabled={rebaseRequested}
+          title="Ask the agent to rebase this branch against main"
+        >
+          {#if rebaseRequested}
+            Rebase requested
+          {:else}
+            Rebase
+          {/if}
+        </button>
+      </div>
+    {/if}
+
+    {#if changesStore.allChanges.length > 0}
+      <div class="flex items-center gap-2 text-text-muted">
+        {#if changeSummary.added > 0}
+          <span class="text-success">{changeSummary.added} added</span>
+        {/if}
+        {#if changeSummary.modified > 0}
+          <span class="text-warning">{changeSummary.modified} modified</span>
+        {/if}
+        {#if changeSummary.deleted > 0}
+          <span class="text-danger">{changeSummary.deleted} deleted</span>
+        {/if}
+        {#if changeSummary.renamed > 0}
+          <span class="text-accent">{changeSummary.renamed} renamed</span>
+        {/if}
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
 <div class="flex h-full flex-col bg-surface">
+  {#if isWorktree && (branchStatus.commitsBehind > 0 || changesStore.allChanges.length > 0)}
+    {@render branchStatusBar()}
+  {/if}
   {@render tabSwitcher()}
 
   {#if selectedFile}

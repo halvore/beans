@@ -181,6 +181,8 @@ func worktreeToModel(wt *worktree.Worktree, core *beancore.Core, baseRef string,
 	if computeGitStatus {
 		m.HasChanges = gitutil.HasChanges(wt.Path)
 		m.HasUnmergedCommits = gitutil.HasUnmergedCommits(wt.Path, baseRef)
+		m.CommitsBehind = gitutil.CommitsBehind(wt.Path, baseRef)
+		m.HasConflicts = gitutil.HasConflicts(wt.Path, baseRef)
 	}
 	if wt.Name != "" {
 		m.Name = &wt.Name

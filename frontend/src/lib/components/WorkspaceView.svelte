@@ -83,7 +83,7 @@
 </script>
 
 {#snippet changesPanel()}
-  <ChangesPane path={worktreePath} />
+  <ChangesPane path={worktreePath} {worktreeId} />
 {/snippet}
 
 {#snippet agentChatPanel()}

@@ -973,6 +973,40 @@ func (r *queryResolver) AllFileDiff(ctx context.Context, filePath string, path *
 	return gitutil.AllFileDiff(dir, filePath, baseRef)
 }
 
+// BranchStatus is the resolver for the branchStatus field.
+func (r *queryResolver) BranchStatus(ctx context.Context, path *string) (*model.BranchStatus, error) {
+	dir := r.ProjectRoot
+	if path != nil && *path != "" {
+		if r.WorktreeMgr != nil {
+			wts, err := r.WorktreeMgr.List()
+			if err != nil {
+				return nil, err
+			}
+			valid := false
+			for _, wt := range wts {
+				if wt.Path == *path {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return nil, fmt.Errorf("unknown worktree path: %s", *path)
+			}
+		}
+		dir = *path
+	}
+
+	var baseRef string
+	if r.WorktreeMgr != nil {
+		baseRef = r.WorktreeMgr.BaseRef()
+	}
+
+	return &model.BranchStatus{
+		CommitsBehind: gitutil.CommitsBehind(dir, baseRef),
+		HasConflicts:  gitutil.HasConflicts(dir, baseRef),
+	}, nil
+}
+
 // HasDirtyBeans is the resolver for the hasDirtyBeans field.
 func (r *queryResolver) HasDirtyBeans(ctx context.Context) (bool, error) {
 	return r.Core.HasDirty(), nil
