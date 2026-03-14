@@ -1,20 +1,6 @@
-import { gql } from 'urql';
 import { pipe, subscribe } from 'wonka';
 import { client } from './graphqlClient';
-
-interface ActiveAgentStatus {
-  beanId: string;
-  status: 'IDLE' | 'RUNNING' | 'ERROR';
-}
-
-const ACTIVE_AGENT_STATUSES_SUBSCRIPTION = gql`
-  subscription ActiveAgentStatuses {
-    activeAgentStatuses {
-      beanId
-      status
-    }
-  }
-`;
+import { ActiveAgentStatusesDocument, AgentSessionStatus } from './graphql/generated';
 
 class AgentStatusesStore {
   runningBeanIds = $state<Set<string>>(new Set());
@@ -25,9 +11,9 @@ class AgentStatusesStore {
     if (this.#unsubscribe) return;
 
     const { unsubscribe } = pipe(
-      client.subscription(ACTIVE_AGENT_STATUSES_SUBSCRIPTION, {}),
+      client.subscription(ActiveAgentStatusesDocument, {}),
       subscribe(
-        (result: { data?: { activeAgentStatuses?: ActiveAgentStatus[] }; error?: Error }) => {
+        (result) => {
           if (result.error) {
             console.error('Agent statuses subscription error:', result.error);
             return;
@@ -36,7 +22,7 @@ class AgentStatusesStore {
           const statuses = result.data?.activeAgentStatuses;
           if (statuses) {
             this.runningBeanIds = new Set(
-              statuses.filter((s) => s.status === 'RUNNING').map((s) => s.beanId)
+              statuses.filter((s) => s.status === AgentSessionStatus.Running).map((s) => s.beanId)
             );
           }
         }

@@ -1,25 +1,13 @@
 <script lang="ts">
-  import { gql } from 'urql';
   import { changesStore, type FileChange } from '$lib/changes.svelte';
   import { client } from '$lib/graphqlClient';
   import { configStore } from '$lib/config.svelte';
   import { ui } from '$lib/uiState.svelte';
   import { MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
+  import { SendAgentMessageDocument, DiscardFileChangeDocument, FileDiffDocument, AllFileDiffDocument } from '$lib/graphql/generated';
 
   import SplitPane from '$lib/components/SplitPane.svelte';
   import ConfirmModal from './ConfirmModal.svelte';
-
-  const SEND_AGENT_MESSAGE = gql`
-    mutation SendAgentMessage($beanId: ID!, $message: String!) {
-      sendAgentMessage(beanId: $beanId, message: $message)
-    }
-  `;
-
-  const DISCARD_FILE_CHANGE = gql`
-    mutation DiscardFileChange($filePath: String!, $staged: Boolean!, $path: String) {
-      discardFileChange(filePath: $filePath, staged: $staged, path: $path)
-    }
-  `;
 
   interface Props {
     path?: string;
@@ -37,7 +25,7 @@
     if (!worktreeId) return;
     rebaseRequested = true;
     await client
-      .mutation(SEND_AGENT_MESSAGE, {
+      .mutation(SendAgentMessageDocument, {
         beanId: worktreeId,
         message: `Please rebase this branch against ${configStore.mainBranch} and resolve any conflicts.`
       })
@@ -46,18 +34,6 @@
 
   type Tab = 'unstaged' | 'all';
   let activeTab = $state<Tab>('all');
-
-  const FILE_DIFF_QUERY = gql`
-    query FileDiff($filePath: String!, $staged: Boolean!, $path: String) {
-      fileDiff(filePath: $filePath, staged: $staged, path: $path)
-    }
-  `;
-
-  const ALL_FILE_DIFF_QUERY = gql`
-    query AllFileDiff($filePath: String!, $path: String) {
-      allFileDiff(filePath: $filePath, path: $path)
-    }
-  `;
 
   // Diff view state
   let selectedFile = $state<{ path: string; staged: boolean } | null>(null);
@@ -83,7 +59,7 @@
   async function fetchDiff(filePath: string, staged: boolean) {
     diffLoading = true;
     const result = await client
-      .query(FILE_DIFF_QUERY, { filePath, staged, path: path ?? null })
+      .query(FileDiffDocument, { filePath, staged, path: path ?? null })
       .toPromise();
 
     // Guard against stale response if user clicked a different file while loading
@@ -101,7 +77,7 @@
   async function fetchAllDiff(filePath: string) {
     diffLoading = true;
     const result = await client
-      .query(ALL_FILE_DIFF_QUERY, { filePath, path: path ?? null })
+      .query(AllFileDiffDocument, { filePath, path: path ?? null })
       .toPromise();
 
     if (selectedFile?.path !== filePath) return;
@@ -149,7 +125,7 @@
 
   async function discardChange(filePath: string, staged: boolean) {
     confirmingDiscard = null;
-    await client.mutation(DISCARD_FILE_CHANGE, { filePath, staged, path: path ?? null }).toPromise();
+    await client.mutation(DiscardFileChangeDocument, { filePath, staged, path: path ?? null }).toPromise();
     // Clear selection if the discarded file was selected
     if (selectedFile?.path === filePath) {
       selectedFile = null;

@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Bean } from '$lib/beans.svelte';
   import { beansStore } from '$lib/beans.svelte';
-  import { gql } from 'urql';
   import { client } from '$lib/graphqlClient';
+  import { CreateBeanDocument, UpdateBeanDocument, type CreateBeanInput, type UpdateBeanInput } from '$lib/graphql/generated';
 
   interface Props {
     bean?: Bean | null;
@@ -54,46 +54,6 @@
     })
   );
 
-  const CREATE_BEAN = gql`
-    mutation CreateBean($input: CreateBeanInput!) {
-      createBean(input: $input) {
-        id
-        title
-        status
-        type
-        priority
-        tags
-        body
-        parentId
-        blockingIds
-        slug
-        path
-        createdAt
-        updatedAt
-      }
-    }
-  `;
-
-  const UPDATE_BEAN = gql`
-    mutation UpdateBean($id: ID!, $input: UpdateBeanInput!) {
-      updateBean(id: $id, input: $input) {
-        id
-        title
-        status
-        type
-        priority
-        tags
-        body
-        parentId
-        blockingIds
-        slug
-        path
-        createdAt
-        updatedAt
-      }
-    }
-  `;
-
   function parseTags(raw: string): string[] {
     return raw
       .split(',')
@@ -110,7 +70,7 @@
     submitting = true;
     error = null;
 
-    const input: Record<string, unknown> = {
+    const fields = {
       title: title.trim(),
       type,
       status,
@@ -120,21 +80,20 @@
       parent: parentId || null
     };
 
-    let result;
+    let saved: Bean | null = null;
     if (isEdit && bean) {
-      result = await client.mutation(UPDATE_BEAN, { id: bean.id, input }).toPromise();
+      const input: UpdateBeanInput = fields;
+      const result = await client.mutation(UpdateBeanDocument, { id: bean.id, input }).toPromise();
+      submitting = false;
+      if (result.error) { error = result.error.message; return; }
+      saved = result.data?.updateBean ?? null;
     } else {
-      result = await client.mutation(CREATE_BEAN, { input }).toPromise();
+      const input: CreateBeanInput = fields;
+      const result = await client.mutation(CreateBeanDocument, { input }).toPromise();
+      submitting = false;
+      if (result.error) { error = result.error.message; return; }
+      saved = result.data?.createBean ?? null;
     }
-
-    submitting = false;
-
-    if (result.error) {
-      error = result.error.message;
-      return;
-    }
-
-    const saved = result.data?.createBean ?? result.data?.updateBean;
     if (saved) {
       onSaved?.(saved);
     }

@@ -1,73 +1,16 @@
-import { gql, type SubscriptionHandler } from 'urql';
 import { pipe, subscribe } from 'wonka';
 import { SvelteMap } from 'svelte/reactivity';
 import { client } from './graphqlClient';
+import {
+  BeanChangedDocument,
+  type BeanFieldsFragment,
+  type BeanChangedSubscription,
+} from './graphql/generated';
 
 /**
- * Bean type matching the GraphQL schema
+ * Bean type matching the GraphQL schema (re-exported from codegen)
  */
-export interface Bean {
-  id: string;
-  slug: string | null;
-  path: string;
-  title: string;
-  status: string;
-  type: string;
-  priority: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-  body: string;
-  order: string;
-  parentId: string | null;
-  blockingIds: string[];
-}
-
-/**
- * Change type from GraphQL subscription
- */
-type ChangeType = 'INITIAL_SNAPSHOT' | 'CREATED' | 'UPDATED' | 'DELETED';
-
-/**
- * Bean change event from GraphQL subscription
- */
-interface BeanChangeEvent {
-  type: ChangeType;
-  beanId: string;
-  bean: Bean | null;
-  beans: Bean[] | null;
-}
-
-/**
- * GraphQL subscription for bean changes with initial state support
- */
-const BEAN_FIELDS = `
-  id
-  slug
-  path
-  title
-  status
-  type
-  priority
-  tags
-  createdAt
-  updatedAt
-  body
-  order
-  parentId
-  blockingIds
-`;
-
-const BEAN_CHANGED_SUBSCRIPTION = gql`
-  subscription BeanChanged($includeInitial: Boolean!) {
-    beanChanged(includeInitial: $includeInitial) {
-      type
-      beanId
-      bean { ${BEAN_FIELDS} }
-      beans { ${BEAN_FIELDS} }
-    }
-  }
-`;
+export type Bean = BeanFieldsFragment;
 
 /**
  * Svelte 5 runes-style stateful store for beans.
@@ -117,8 +60,8 @@ export class BeansStore {
     this.#initialSyncDone = false;
 
     const { unsubscribe } = pipe(
-      client.subscription(BEAN_CHANGED_SUBSCRIPTION, { includeInitial: true }),
-      subscribe((result: { data?: { beanChanged?: BeanChangeEvent }; error?: Error }) => {
+      client.subscription(BeanChangedDocument, { includeInitial: true }),
+      subscribe((result) => {
         if (result.error) {
           console.error('Subscription error:', result.error);
           this.connected = false;
@@ -129,7 +72,7 @@ export class BeansStore {
 
         this.connected = true;
 
-        const event = result.data?.beanChanged as BeanChangeEvent | undefined;
+        const event = result.data?.beanChanged;
         if (!event) return;
 
         switch (event.type) {

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import { onDestroy } from 'svelte';
-  import { gql } from 'urql';
   import { worktreeStore, MAIN_WORKSPACE_ID, type WorktreeStatus } from '$lib/worktrees.svelte';
+  import { MainChangesDocument, WorktreeStatusesDocument } from '$lib/graphql/generated';
   import { beansStore, type Bean } from '$lib/beans.svelte';
   import { agentStatusesStore } from '$lib/agentStatuses.svelte';
   import { configStore } from '$lib/config.svelte';
@@ -33,15 +33,13 @@
     ...worktreeStore.worktrees.map((wt): WorkspaceItem => ({
       id: wt.id,
       label: wt.name ?? wt.branch,
-      description: wt.description,
+      description: wt.description ?? null,
       beans: beansForWorktree(wt.beanIds),
       settingUp: wt.setupStatus === 'RUNNING'
     }))
   ]);
 
   // Poll for uncommitted changes in the main repo and worktree integration readiness
-  const MAIN_CHANGES_QUERY = gql`query { fileChanges { path } }`;
-  const WORKTREE_STATUS_QUERY = gql`query { worktrees { id hasChanges hasUnmergedCommits } }`;
   let mainHasChanges = $state(false);
   let worktreeStatuses = $state(new Map<string, WorktreeStatus>());
   let readyWorktreeIds = $derived(new Set(
@@ -52,8 +50,8 @@
 
   async function fetchStatuses() {
     const [mainResult, wtResult] = await Promise.all([
-      client.query(MAIN_CHANGES_QUERY, {}).toPromise(),
-      client.query(WORKTREE_STATUS_QUERY, {}).toPromise()
+      client.query(MainChangesDocument, {}).toPromise(),
+      client.query(WorktreeStatusesDocument, {}).toPromise()
     ]);
     mainHasChanges = (mainResult.data?.fileChanges?.length ?? 0) > 0;
     const statuses = new Map<string, WorktreeStatus>();
@@ -72,8 +70,8 @@
 
   async function promptDestroy(id: string) {
     // Fetch fresh status so warnings are accurate regardless of poll timing
-    const result = await client.query(WORKTREE_STATUS_QUERY, {}).toPromise();
-    const fresh = (result.data?.worktrees ?? []).find((wt: { id: string }) => wt.id === id);
+    const result = await client.query(WorktreeStatusesDocument, {}).toPromise();
+    const fresh = (result.data?.worktrees ?? []).find((wt) => wt.id === id);
     confirmingStatus = fresh ? { hasChanges: fresh.hasChanges, hasUnmergedCommits: fresh.hasUnmergedCommits } : null;
     confirmingRemoveId = id;
   }

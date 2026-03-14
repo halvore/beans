@@ -1,31 +1,11 @@
-import { gql } from 'urql';
 import { client } from '$lib/graphqlClient';
+import {
+  AgentActionsDocument,
+  ExecuteAgentActionDocument,
+  type AgentActionFieldsFragment,
+} from './graphql/generated';
 
-export interface AgentAction {
-  id: string;
-  label: string;
-  description: string | null;
-  disabled: boolean;
-  disabledReason: string | null;
-}
-
-const AGENT_ACTIONS_QUERY = gql`
-  query AgentActions($beanId: ID!) {
-    agentActions(beanId: $beanId) {
-      id
-      label
-      description
-      disabled
-      disabledReason
-    }
-  }
-`;
-
-const EXECUTE_AGENT_ACTION = gql`
-  mutation ExecuteAgentAction($beanId: ID!, $actionId: ID!) {
-    executeAgentAction(beanId: $beanId, actionId: $actionId)
-  }
-`;
+export type AgentAction = AgentActionFieldsFragment;
 
 export class AgentActionsStore {
   actions = $state<AgentAction[]>([]);
@@ -33,7 +13,7 @@ export class AgentActionsStore {
   #wasAgentBusy = false;
 
   async fetch(beanId: string) {
-    const result = await client.query(AGENT_ACTIONS_QUERY, { beanId }).toPromise();
+    const result = await client.query(AgentActionsDocument, { beanId }).toPromise();
     if (result.error) {
       console.error('Failed to fetch agent actions:', result.error);
       return;
@@ -57,7 +37,7 @@ export class AgentActionsStore {
   async execute(beanId: string, actionId: string) {
     this.executingAction = actionId;
     try {
-      await client.mutation(EXECUTE_AGENT_ACTION, { beanId, actionId }).toPromise();
+      await client.mutation(ExecuteAgentActionDocument, { beanId, actionId }).toPromise();
     } finally {
       this.executingAction = null;
     }

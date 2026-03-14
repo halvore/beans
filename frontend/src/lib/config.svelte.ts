@@ -1,14 +1,5 @@
-import { gql } from 'urql';
 import { client } from './graphqlClient';
-
-const CONFIG_QUERY = gql`
-  query Config {
-    projectName
-    mainBranch
-    agentEnabled
-    worktreeRunCommand
-  }
-`;
+import { ConfigDocument } from './graphql/generated';
 
 class ConfigStore {
   projectName = $state('');
@@ -17,7 +8,7 @@ class ConfigStore {
   worktreeRunCommand = $state('');
 
   async load(): Promise<void> {
-    const result = await client.query(CONFIG_QUERY, {}).toPromise();
+    const result = await client.query(ConfigDocument, {}).toPromise();
     if (result.error) {
       console.warn('Failed to load config:', result.error.message);
       return;

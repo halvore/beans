@@ -7,7 +7,7 @@
   import { ui } from '$lib/uiState.svelte';
   import { typeBorders } from '$lib/styles';
   import { fade } from 'svelte/transition';
-  import { gql } from 'urql';
+  import { ArchiveBeanDocument } from '$lib/graphql/generated';
   import BeanCard from './BeanCard.svelte';
   import ConfirmModal from './ConfirmModal.svelte';
 
@@ -21,17 +21,11 @@
   let confirmingArchiveAll = $state(false);
   let archivingAll = $state(false);
 
-  const ARCHIVE_BEAN = gql`
-    mutation ArchiveBean($id: ID!) {
-      archiveBean(id: $id)
-    }
-  `;
-
   async function archiveAll() {
     archivingAll = true;
     const completedBeans = beansForStatus('completed');
     for (const bean of completedBeans) {
-      await client.mutation(ARCHIVE_BEAN, { id: bean.id }).toPromise();
+      await client.mutation(ArchiveBeanDocument, { id: bean.id }).toPromise();
     }
     archivingAll = false;
     confirmingArchiveAll = false;

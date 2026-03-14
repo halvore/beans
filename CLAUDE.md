@@ -35,7 +35,8 @@ Key packages:
 
 ## GraphQL
 
-- When making changes to the GraphQL schema (`internal/graph/schema.graphqls`), run `mise codegen` to regenerate `generated.go`.
+- When making changes to the GraphQL schema (`internal/graph/schema.graphqls`), run `mise codegen` to regenerate both backend (`generated.go`) and frontend (`frontend/src/lib/graphql/generated.ts`) types.
+- When adding or changing frontend GraphQL operations (queries, mutations, subscriptions), update `frontend/src/lib/graphql/operations.graphql` and run `mise codegen`. Do NOT use inline `gql` strings — all operations must go through codegen for type safety.
 - All CLI commands that interact with beans should internally use GraphQL queries/mutations against the local server.
 - Subscriptions use WebSocket transport. The `beanChanged` subscription supports `includeInitial: true` to send a full snapshot on connect, avoiding race conditions between initial load and live updates.
 

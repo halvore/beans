@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { gql } from 'urql';
   import { AgentChatStore } from '$lib/agentChat.svelte';
+  import { WriteTerminalInputDocument } from '$lib/graphql/generated';
   import { changesStore } from '$lib/changes.svelte';
   import { configStore } from '$lib/config.svelte';
   import { client } from '$lib/graphqlClient';
@@ -17,12 +17,6 @@
   import AgentActions from './AgentActions.svelte';
   import ConfirmModal from './ConfirmModal.svelte';
 
-  const WRITE_TERMINAL_INPUT = gql`
-    mutation WriteTerminalInput($sessionId: String!, $data: String!) {
-      writeTerminalInput(sessionId: $sessionId, data: $data)
-    }
-  `;
-
   async function handleRun() {
     // Show and initialize the terminal
     ui.terminalInitialized = true;
@@ -31,7 +25,7 @@
     // Write the run command — the resolver creates the session on demand
     // if the terminal pane hasn't connected via WebSocket yet.
     await client
-      .mutation(WRITE_TERMINAL_INPUT, {
+      .mutation(WriteTerminalInputDocument, {
         sessionId: worktreeId,
         data: configStore.worktreeRunCommand + '\n'
       })

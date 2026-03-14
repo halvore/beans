@@ -6,24 +6,9 @@
   import { ui } from '$lib/uiState.svelte';
   import { statusColors, typeColors, priorityColors } from '$lib/styles';
   import { client } from '$lib/graphqlClient';
-  import { gql } from 'urql';
+  import { SendAgentMessageDocument, UpdateBeanStatusDocument, ArchiveBeanDocument } from '$lib/graphql/generated';
   import BeanCard from './BeanCard.svelte';
   import RenderedMarkdown from './RenderedMarkdown.svelte';
-
-  const SEND_AGENT_MESSAGE = gql`
-    mutation SendAgentMessage($beanId: ID!, $message: String!) {
-      sendAgentMessage(beanId: $beanId, message: $message)
-    }
-  `;
-
-  const UPDATE_BEAN = gql`
-    mutation UpdateBean($id: ID!, $input: UpdateBeanInput!) {
-      updateBean(id: $id, input: $input) {
-        id
-        status
-      }
-    }
-  `;
 
   interface Props {
     bean: Bean;
@@ -57,15 +42,9 @@
   const isArchivable = $derived(bean.status === 'completed' || bean.status === 'scrapped');
   let archiving = $state(false);
 
-  const ARCHIVE_BEAN = gql`
-    mutation ArchiveBean($id: ID!) {
-      archiveBean(id: $id)
-    }
-  `;
-
   async function archiveBean() {
     archiving = true;
-    const result = await client.mutation(ARCHIVE_BEAN, { id: bean.id }).toPromise();
+    const result = await client.mutation(ArchiveBeanDocument, { id: bean.id }).toPromise();
     if (result.error) {
       worktreeError = result.error.message;
     }
@@ -100,7 +79,7 @@
     const oldStatus = bean.status;
     beansStore.optimisticUpdate(bean.id, { status: newStatus });
     const result = await client
-      .mutation(UPDATE_BEAN, { id: bean.id, input: { status: newStatus } })
+      .mutation(UpdateBeanStatusDocument, { id: bean.id, input: { status: newStatus } })
       .toPromise();
     if (result.error) {
       beansStore.optimisticUpdate(bean.id, { status: oldStatus });
@@ -121,7 +100,7 @@
 
     // Send initial prompt to the agent in the new worktree
     await client
-      .mutation(SEND_AGENT_MESSAGE, {
+      .mutation(SendAgentMessageDocument, {
         beanId: wt.id,
         message: `Start working on bean ${bean.id}`
       })

@@ -6,7 +6,7 @@
   import { ui } from '$lib/uiState.svelte';
   import { statusColors, typeColors, typeBorders, priorityIndicators } from '$lib/styles';
   import { client } from '$lib/graphqlClient';
-  import { gql } from 'urql';
+  import { ArchiveBeanDocument } from '$lib/graphql/generated';
 
   interface Props {
     bean: Bean;
@@ -35,18 +35,12 @@
   }
   const isArchivable = $derived(bean.status === 'completed' || bean.status === 'scrapped');
 
-  const ARCHIVE_BEAN = gql`
-    mutation ArchiveBean($id: ID!) {
-      archiveBean(id: $id)
-    }
-  `;
-
   let archiving = $state(false);
 
   async function handleArchive(e: MouseEvent) {
     e.stopPropagation();
     archiving = true;
-    await client.mutation(ARCHIVE_BEAN, { id: bean.id }).toPromise();
+    await client.mutation(ArchiveBeanDocument, { id: bean.id }).toPromise();
     archiving = false;
   }
 

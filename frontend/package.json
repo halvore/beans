@@ -14,11 +14,16 @@
     "lint": "prettier --check . && eslint .",
     "test:unit": "vitest",
     "test": "npm run test:unit -- --run",
-    "test:e2e": "bash e2e/run.sh"
+    "test:e2e": "bash e2e/run.sh",
+    "codegen": "graphql-codegen --config codegen.ts"
   },
   "devDependencies": {
     "@eslint/compat": "^1.4.1",
     "@eslint/js": "^9.39.4",
+    "@graphql-codegen/cli": "^6.2.1",
+    "@graphql-codegen/typed-document-node": "^6.1.7",
+    "@graphql-codegen/typescript": "^5.0.9",
+    "@graphql-codegen/typescript-operations": "^5.0.9",
     "@iconify/json": "^2.2.449",
     "@iconify/tailwind4": "^1.2.3",
     "@playwright/test": "^1.58.2",

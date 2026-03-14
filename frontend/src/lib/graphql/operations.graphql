@@ -1,0 +1,273 @@
+# =============================================================================
+# Fragments
+# =============================================================================
+
+fragment BeanFields on Bean {
+  id
+  slug
+  path
+  title
+  status
+  type
+  priority
+  tags
+  createdAt
+  updatedAt
+  body
+  order
+  parentId
+  blockingIds
+  worktreeId
+}
+
+fragment WorktreeFields on Worktree {
+  id
+  name
+  description
+  branch
+  path
+  beans {
+    id
+  }
+  setupStatus
+  setupError
+}
+
+fragment AgentSessionFields on AgentSession {
+  beanId
+  agentType
+  status
+  messages {
+    role
+    content
+    images {
+      url
+      mediaType
+    }
+    diff
+  }
+  error
+  planMode
+  actMode
+  systemStatus
+  pendingInteraction {
+    type
+    planContent
+    questions {
+      header
+      question
+      multiSelect
+      options {
+        label
+        description
+      }
+    }
+  }
+  workDir
+  subagentActivities {
+    taskId
+    index
+    description
+    currentTool
+  }
+}
+
+fragment FileChangeFields on FileChange {
+  path
+  status
+  additions
+  deletions
+  staged
+}
+
+fragment AgentActionFields on AgentAction {
+  id
+  label
+  description
+  disabled
+  disabledReason
+}
+
+# =============================================================================
+# Subscriptions
+# =============================================================================
+
+subscription BeanChanged($includeInitial: Boolean!) {
+  beanChanged(includeInitial: $includeInitial) {
+    type
+    beanId
+    bean {
+      ...BeanFields
+    }
+    beans {
+      ...BeanFields
+    }
+  }
+}
+
+subscription WorktreesChanged {
+  worktreesChanged {
+    ...WorktreeFields
+  }
+}
+
+subscription AgentSessionChanged($beanId: ID!) {
+  agentSessionChanged(beanId: $beanId) {
+    ...AgentSessionFields
+  }
+}
+
+subscription ActiveAgentStatuses {
+  activeAgentStatuses {
+    beanId
+    status
+  }
+}
+
+# =============================================================================
+# Queries
+# =============================================================================
+
+query Config {
+  projectName
+  mainBranch
+  agentEnabled
+  worktreeRunCommand
+}
+
+query Worktrees {
+  worktrees {
+    id
+    hasChanges
+    hasUnmergedCommits
+  }
+}
+
+query FileChanges($path: String) {
+  fileChanges(path: $path) {
+    ...FileChangeFields
+  }
+}
+
+query AllFileChanges($path: String) {
+  allFileChanges(path: $path) {
+    ...FileChangeFields
+  }
+}
+
+query BranchStatus($path: String) {
+  branchStatus(path: $path) {
+    commitsBehind
+    hasConflicts
+  }
+}
+
+query AgentActions($beanId: ID!) {
+  agentActions(beanId: $beanId) {
+    ...AgentActionFields
+  }
+}
+
+query FileDiff($filePath: String!, $staged: Boolean!, $path: String) {
+  fileDiff(filePath: $filePath, staged: $staged, path: $path)
+}
+
+query AllFileDiff($filePath: String!, $path: String) {
+  allFileDiff(filePath: $filePath, path: $path)
+}
+
+query MainChanges {
+  fileChanges {
+    path
+  }
+}
+
+query WorktreeStatuses {
+  worktrees {
+    id
+    hasChanges
+    hasUnmergedCommits
+  }
+}
+
+# =============================================================================
+# Mutations
+# =============================================================================
+
+mutation CreateBean($input: CreateBeanInput!) {
+  createBean(input: $input) {
+    ...BeanFields
+  }
+}
+
+mutation UpdateBean($id: ID!, $input: UpdateBeanInput!) {
+  updateBean(id: $id, input: $input) {
+    ...BeanFields
+  }
+}
+
+mutation UpdateBeanStatus($id: ID!, $input: UpdateBeanInput!) {
+  updateBean(id: $id, input: $input) {
+    id
+    status
+  }
+}
+
+mutation UpdateBeanOrder($id: ID!, $input: UpdateBeanInput!) {
+  updateBean(id: $id, input: $input) {
+    id
+    status
+    order
+    parentId
+  }
+}
+
+mutation DeleteBean($id: ID!) {
+  deleteBean(id: $id)
+}
+
+mutation ArchiveBean($id: ID!) {
+  archiveBean(id: $id)
+}
+
+mutation CreateWorktree($name: String!) {
+  createWorktree(name: $name) {
+    ...WorktreeFields
+  }
+}
+
+mutation RemoveWorktree($id: ID!) {
+  removeWorktree(id: $id)
+}
+
+mutation SendAgentMessage($beanId: ID!, $message: String!, $images: [ImageInput!]) {
+  sendAgentMessage(beanId: $beanId, message: $message, images: $images)
+}
+
+mutation StopAgent($beanId: ID!) {
+  stopAgent(beanId: $beanId)
+}
+
+mutation SetAgentPlanMode($beanId: ID!, $planMode: Boolean!) {
+  setAgentPlanMode(beanId: $beanId, planMode: $planMode)
+}
+
+mutation SetAgentActMode($beanId: ID!, $actMode: Boolean!) {
+  setAgentActMode(beanId: $beanId, actMode: $actMode)
+}
+
+mutation ClearAgentSession($beanId: ID!) {
+  clearAgentSession(beanId: $beanId)
+}
+
+mutation ExecuteAgentAction($beanId: ID!, $actionId: ID!) {
+  executeAgentAction(beanId: $beanId, actionId: $actionId)
+}
+
+mutation WriteTerminalInput($sessionId: String!, $data: String!) {
+  writeTerminalInput(sessionId: $sessionId, data: $data)
+}
+
+mutation DiscardFileChange($filePath: String!, $staged: Boolean!, $path: String) {
+  discardFileChange(filePath: $filePath, staged: $staged, path: $path)
+}

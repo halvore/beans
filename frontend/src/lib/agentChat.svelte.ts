@@ -1,137 +1,33 @@
-import { gql } from 'urql';
 import { pipe, subscribe } from 'wonka';
 import { client } from './graphqlClient';
+import {
+  AgentSessionChangedDocument,
+  SendAgentMessageDocument,
+  StopAgentDocument,
+  SetAgentPlanModeDocument,
+  SetAgentActModeDocument,
+  ClearAgentSessionDocument,
+  type AgentSessionFieldsFragment,
+  AgentMessageRole,
+  type AgentMessage as GqlAgentMessage,
+  type AgentMessageImage as GqlAgentMessageImage,
+  type PendingInteraction as GqlPendingInteraction,
+  type AskUserQuestion as GqlAskUserQuestion,
+  type AskUserOption as GqlAskUserOption,
+  type SubagentActivity as GqlSubagentActivity,
+  type InteractionType,
+  type ImageInput,
+} from './graphql/generated';
 
-export interface AgentMessageImage {
-  url: string;
-  mediaType: string;
-}
-
-export interface AgentMessage {
-  role: 'USER' | 'ASSISTANT' | 'TOOL' | 'INFO';
-  content: string;
-  images: AgentMessageImage[];
-  diff: string | null;
-}
-
-export type InteractionType = 'EXIT_PLAN' | 'ENTER_PLAN' | 'ASK_USER';
-
-export interface AskUserOption {
-  label: string;
-  description: string;
-}
-
-export interface AskUserQuestionData {
-  header: string;
-  question: string;
-  multiSelect: boolean;
-  options: AskUserOption[];
-}
-
-export interface PendingInteraction {
-  type: InteractionType;
-  planContent: string | null;
-  questions: AskUserQuestionData[] | null;
-}
-
-export interface SubagentActivity {
-  taskId: string;
-  index: number;
-  description: string;
-  currentTool: string;
-}
-
-export interface AgentSession {
-  beanId: string;
-  agentType: string;
-  status: 'IDLE' | 'RUNNING' | 'ERROR';
-  messages: AgentMessage[];
-  error: string | null;
-  planMode: boolean;
-  actMode: boolean;
-  systemStatus: string | null;
-  pendingInteraction: PendingInteraction | null;
-  workDir: string | null;
-  subagentActivities: SubagentActivity[];
-}
-
-export interface ImageUploadInput {
-  data: string;
-  mediaType: string;
-}
-
-const AGENT_SESSION_SUBSCRIPTION = gql`
-  subscription AgentSessionChanged($beanId: ID!) {
-    agentSessionChanged(beanId: $beanId) {
-      beanId
-      agentType
-      status
-      messages {
-        role
-        content
-        images {
-          url
-          mediaType
-        }
-        diff
-      }
-      error
-      planMode
-      actMode
-      systemStatus
-      pendingInteraction {
-        type
-        planContent
-        questions {
-          header
-          question
-          multiSelect
-          options {
-            label
-            description
-          }
-        }
-      }
-      workDir
-      subagentActivities {
-        taskId
-        index
-        description
-        currentTool
-      }
-    }
-  }
-`;
-
-const SEND_AGENT_MESSAGE = gql`
-  mutation SendAgentMessage($beanId: ID!, $message: String!, $images: [ImageInput!]) {
-    sendAgentMessage(beanId: $beanId, message: $message, images: $images)
-  }
-`;
-
-const STOP_AGENT = gql`
-  mutation StopAgent($beanId: ID!) {
-    stopAgent(beanId: $beanId)
-  }
-`;
-
-const SET_AGENT_PLAN_MODE = gql`
-  mutation SetAgentPlanMode($beanId: ID!, $planMode: Boolean!) {
-    setAgentPlanMode(beanId: $beanId, planMode: $planMode)
-  }
-`;
-
-const SET_AGENT_ACT_MODE = gql`
-  mutation SetAgentActMode($beanId: ID!, $actMode: Boolean!) {
-    setAgentActMode(beanId: $beanId, actMode: $actMode)
-  }
-`;
-
-const CLEAR_AGENT_SESSION = gql`
-  mutation ClearAgentSession($beanId: ID!) {
-    clearAgentSession(beanId: $beanId)
-  }
-`;
+export type AgentMessageImage = GqlAgentMessageImage;
+export type AgentMessage = GqlAgentMessage;
+export type { InteractionType };
+export type AskUserOption = GqlAskUserOption;
+export type AskUserQuestionData = GqlAskUserQuestion;
+export type PendingInteraction = GqlPendingInteraction;
+export type SubagentActivity = GqlSubagentActivity;
+export type AgentSession = AgentSessionFieldsFragment;
+export type ImageUploadInput = ImageInput;
 
 export class AgentChatStore {
   session = $state<AgentSession | null>(null);
@@ -150,8 +46,8 @@ export class AgentChatStore {
     this.#beanId = beanId;
 
     const { unsubscribe } = pipe(
-      client.subscription(AGENT_SESSION_SUBSCRIPTION, { beanId }),
-      subscribe((result: { data?: { agentSessionChanged?: AgentSession }; error?: Error }) => {
+      client.subscription(AgentSessionChangedDocument, { beanId }),
+      subscribe((result) => {
         if (result.error) {
           console.error('Agent session subscription error:', result.error);
           this.error = result.error.message;
@@ -219,7 +115,7 @@ export class AgentChatStore {
         messages: [
           ...this.session.messages,
           {
-            role: 'USER',
+            role: AgentMessageRole.User,
             content: message,
             images: [],
             diff: null
@@ -229,7 +125,7 @@ export class AgentChatStore {
     }
 
     const result = await client
-      .mutation(SEND_AGENT_MESSAGE, { beanId, message, images: images ?? null })
+      .mutation(SendAgentMessageDocument, { beanId, message, images: images ?? null })
       .toPromise();
 
     this.sending = false;
@@ -243,7 +139,7 @@ export class AgentChatStore {
   }
 
   async stop(beanId: string): Promise<boolean> {
-    const result = await client.mutation(STOP_AGENT, { beanId }).toPromise();
+    const result = await client.mutation(StopAgentDocument, { beanId }).toPromise();
 
     if (result.error) {
       this.error = result.error.message;
@@ -254,7 +150,7 @@ export class AgentChatStore {
   }
 
   async setPlanMode(beanId: string, planMode: boolean): Promise<boolean> {
-    const result = await client.mutation(SET_AGENT_PLAN_MODE, { beanId, planMode }).toPromise();
+    const result = await client.mutation(SetAgentPlanModeDocument, { beanId, planMode }).toPromise();
 
     if (result.error) {
       this.error = result.error.message;
@@ -265,7 +161,7 @@ export class AgentChatStore {
   }
 
   async setActMode(beanId: string, actMode: boolean): Promise<boolean> {
-    const result = await client.mutation(SET_AGENT_ACT_MODE, { beanId, actMode }).toPromise();
+    const result = await client.mutation(SetAgentActModeDocument, { beanId, actMode }).toPromise();
 
     if (result.error) {
       this.error = result.error.message;
@@ -276,7 +172,7 @@ export class AgentChatStore {
   }
 
   async clearSession(beanId: string): Promise<boolean> {
-    const result = await client.mutation(CLEAR_AGENT_SESSION, { beanId }).toPromise();
+    const result = await client.mutation(ClearAgentSessionDocument, { beanId }).toPromise();
 
     if (result.error) {
       this.error = result.error.message;

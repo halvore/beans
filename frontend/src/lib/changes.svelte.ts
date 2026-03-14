@@ -1,51 +1,15 @@
-import { gql } from 'urql';
 import { client } from './graphqlClient';
+import {
+	FileChangesDocument,
+	AllFileChangesDocument,
+	BranchStatusDocument,
+	type FileChangeFieldsFragment,
+	type BranchStatusQuery,
+} from './graphql/generated';
 
-export interface FileChange {
-	path: string;
-	status: string;
-	additions: number;
-	deletions: number;
-	staged: boolean;
-}
+export type FileChange = FileChangeFieldsFragment;
 
-const FILE_CHANGES_QUERY = gql`
-	query FileChanges($path: String) {
-		fileChanges(path: $path) {
-			path
-			status
-			additions
-			deletions
-			staged
-		}
-	}
-`;
-
-const ALL_FILE_CHANGES_QUERY = gql`
-	query AllFileChanges($path: String) {
-		allFileChanges(path: $path) {
-			path
-			status
-			additions
-			deletions
-			staged
-		}
-	}
-`;
-
-const BRANCH_STATUS_QUERY = gql`
-	query BranchStatus($path: String) {
-		branchStatus(path: $path) {
-			commitsBehind
-			hasConflicts
-		}
-	}
-`;
-
-export interface BranchStatus {
-	commitsBehind: number;
-	hasConflicts: boolean;
-}
+export type BranchStatus = BranchStatusQuery['branchStatus'];
 
 class ChangesStore {
 	changes = $state<FileChange[]>([]);
@@ -58,9 +22,9 @@ class ChangesStore {
 	async fetch(path?: string): Promise<void> {
 		const p = path ?? null;
 		const [result, allResult, branchResult] = await Promise.all([
-			client.query(FILE_CHANGES_QUERY, { path: p }).toPromise(),
-			client.query(ALL_FILE_CHANGES_QUERY, { path: p }).toPromise(),
-			client.query(BRANCH_STATUS_QUERY, { path: p }).toPromise()
+			client.query(FileChangesDocument, { path: p }).toPromise(),
+			client.query(AllFileChangesDocument, { path: p }).toPromise(),
+			client.query(BranchStatusDocument, { path: p }).toPromise()
 		]);
 
 		if (result.error) {

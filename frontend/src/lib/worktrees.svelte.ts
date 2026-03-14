@@ -1,77 +1,29 @@
-import { gql } from 'urql';
 import { pipe, subscribe } from 'wonka';
 import { client } from './graphqlClient';
 import { generateWorkspaceName } from '$lib/nameGenerator';
+import {
+  WorktreesChangedDocument,
+  CreateWorktreeDocument,
+  RemoveWorktreeDocument,
+  WorktreesDocument,
+  type WorktreeFieldsFragment,
+} from './graphql/generated';
 
 export const MAIN_WORKSPACE_ID = '__central__';
 
-export interface Worktree {
-  id: string;
-  name: string | null;
-  description: string | null;
-  branch: string;
-  path: string;
+/** Public Worktree type: codegen fragment with beanIds derived from nested beans. */
+export interface Worktree extends Omit<WorktreeFieldsFragment, 'beans'> {
   beanIds: string[];
-  setupStatus: 'RUNNING' | 'DONE' | 'FAILED' | null;
-  setupError: string | null;
 }
 
-const WORKTREE_FIELDS = `
-  id
-  name
-  description
-  branch
-  path
-  beans { id }
-  setupStatus
-  setupError
-`;
-
-const WORKTREES_SUBSCRIPTION = gql`
-  subscription WorktreesChanged {
-    worktreesChanged {
-      ${WORKTREE_FIELDS}
-    }
-  }
-`;
-
-const CREATE_WORKTREE = gql`
-  mutation CreateWorktree($name: String!) {
-    createWorktree(name: $name) {
-      ${WORKTREE_FIELDS}
-    }
-  }
-`;
-
-const REMOVE_WORKTREE = gql`
-  mutation RemoveWorktree($id: ID!) {
-    removeWorktree(id: $id)
-  }
-`;
+function mapWorktree(raw: WorktreeFieldsFragment): Worktree {
+  const { beans, ...rest } = raw;
+  return { ...rest, beanIds: beans.map((b) => b.id) };
+}
 
 export interface WorktreeStatus {
   hasChanges: boolean;
   hasUnmergedCommits: boolean;
-}
-
-const WORKTREES_QUERY = gql`
-  query Worktrees {
-    worktrees {
-      id
-      hasChanges
-      hasUnmergedCommits
-    }
-  }
-`;
-
-/** Raw shape from GraphQL (beans come as objects with id) */
-interface RawWorktree extends Omit<Worktree, 'beanIds'> {
-  beans: { id: string }[];
-}
-
-function mapWorktree(raw: RawWorktree): Worktree {
-  const { beans, ...rest } = raw;
-  return { ...rest, beanIds: beans.map((b) => b.id) };
 }
 
 class WorktreeStore {
@@ -86,8 +38,8 @@ class WorktreeStore {
     if (this.#unsubscribe) return;
 
     const { unsubscribe } = pipe(
-      client.subscription(WORKTREES_SUBSCRIPTION, {}),
-      subscribe((result: { data?: { worktreesChanged?: RawWorktree[] }; error?: Error }) => {
+      client.subscription(WorktreesChangedDocument, {}),
+      subscribe((result) => {
         if (result.error) {
           console.error('Worktree subscription error:', result.error);
           this.error = result.error.message;
@@ -118,7 +70,7 @@ class WorktreeStore {
     this.error = null;
 
     const name = generateWorkspaceName();
-    const result = await client.mutation(CREATE_WORKTREE, { name }).toPromise();
+    const result = await client.mutation(CreateWorktreeDocument, { name }).toPromise();
 
     this.loading = false;
 
@@ -148,7 +100,7 @@ class WorktreeStore {
     const previous = this.worktrees;
     this.worktrees = this.worktrees.filter((wt) => wt.id !== id);
 
-    const result = await client.mutation(REMOVE_WORKTREE, { id }).toPromise();
+    const result = await client.mutation(RemoveWorktreeDocument, { id }).toPromise();
 
     this.loading = false;
 
@@ -173,9 +125,9 @@ class WorktreeStore {
 
   /** Fetch fresh git status for a specific worktree (on-demand, not cached). */
   async getWorktreeStatus(id: string): Promise<WorktreeStatus | null> {
-    const result = await client.query(WORKTREES_QUERY, {}, { requestPolicy: 'network-only' }).toPromise();
+    const result = await client.query(WorktreesDocument, {}, { requestPolicy: 'network-only' }).toPromise();
     if (result.error) return null;
-    const wt = result.data?.worktrees?.find((w: { id: string }) => w.id === id);
+    const wt = result.data?.worktrees?.find((w) => w.id === id);
     return wt ? { hasChanges: wt.hasChanges, hasUnmergedCommits: wt.hasUnmergedCommits } : null;
   }
 }

@@ -9,18 +9,7 @@ import type { Bean } from '$lib/beans.svelte';
 import { beansStore } from '$lib/beans.svelte';
 import { orderBetween } from '$lib/fractional';
 import { client } from '$lib/graphqlClient';
-import { gql } from 'urql';
-
-const UPDATE_BEAN = gql`
-  mutation UpdateBean($id: ID!, $input: UpdateBeanInput!) {
-    updateBean(id: $id, input: $input) {
-      id
-      status
-      order
-      parentId
-    }
-  }
-`;
+import { UpdateBeanOrderDocument } from './graphql/generated';
 
 /**
  * Ensure all beans in the list have order keys.
@@ -40,7 +29,7 @@ export function ensureOrdered(beans: Bean[]): Bean[] {
       const newOrder = orderBetween(key, nextKey);
       result[i] = { ...result[i], order: newOrder };
       beansStore.optimisticUpdate(result[i].id, { order: newOrder });
-      client.mutation(UPDATE_BEAN, { id: result[i].id, input: { order: newOrder } }).toPromise();
+      client.mutation(UpdateBeanOrderDocument, { id: result[i].id, input: { order: newOrder } }).toPromise();
     }
     key = result[i].order;
   }
@@ -128,7 +117,7 @@ export function applyReparent(
 
   const input: Record<string, string | null> = { parent: newParentId ?? '', order: newOrder };
   client
-    .mutation(UPDATE_BEAN, { id: draggedId, input })
+    .mutation(UpdateBeanOrderDocument, { id: draggedId, input })
     .toPromise()
     .then((result) => {
       if (result.error) {
@@ -196,7 +185,7 @@ export function applyDrop(
   if (!sameStatus) input.status = newStatus!;
   if (changingParent) input.parent = newParentId ?? '';
   client
-    .mutation(UPDATE_BEAN, { id: draggedId, input })
+    .mutation(UpdateBeanOrderDocument, { id: draggedId, input })
     .toPromise()
     .then((result) => {
       if (result.error) {

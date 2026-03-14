@@ -27,7 +27,7 @@ run = "pnpm install"
 sources = ["frontend/package.json", "frontend/pnpm-lock.yaml"]
 
 [tasks.codegen]
-run = "go generate ./..."
+run = ["go generate ./...", "cd frontend && pnpm codegen"]
 
 [tasks.test]
 depends = ["codegen", "test:e2e"]
