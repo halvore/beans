@@ -41,7 +41,12 @@
   const MAIN_CHANGES_QUERY = gql`query { fileChanges { path } }`;
   const WORKTREE_STATUS_QUERY = gql`query { worktrees { id hasChanges hasUnmergedCommits } }`;
   let mainHasChanges = $state(false);
-  let readyWorktreeIds = $state(new Set<string>());
+  let worktreeStatuses = $state(new Map<string, WorktreeStatus>());
+  let readyWorktreeIds = $derived(new Set(
+    [...worktreeStatuses.entries()]
+      .filter(([, s]) => s.hasChanges || s.hasUnmergedCommits)
+      .map(([id]) => id)
+  ));
 
   async function fetchStatuses() {
     const [mainResult, wtResult] = await Promise.all([
@@ -49,11 +54,11 @@
       client.query(WORKTREE_STATUS_QUERY, {}).toPromise()
     ]);
     mainHasChanges = (mainResult.data?.fileChanges?.length ?? 0) > 0;
-    const ready = new Set<string>();
+    const statuses = new Map<string, WorktreeStatus>();
     for (const wt of wtResult.data?.worktrees ?? []) {
-      if (wt.hasChanges || wt.hasUnmergedCommits) ready.add(wt.id);
+      statuses.set(wt.id, { hasChanges: wt.hasChanges, hasUnmergedCommits: wt.hasUnmergedCommits });
     }
-    readyWorktreeIds = ready;
+    worktreeStatuses = statuses;
   }
 
   fetchStatuses();
@@ -63,9 +68,8 @@
   let confirmingRemoveId = $state<string | null>(null);
   let confirmingStatus = $state<WorktreeStatus | null>(null);
 
-  async function promptDestroy(id: string) {
-    const status = await worktreeStore.getWorktreeStatus(id);
-    confirmingStatus = status;
+  function promptDestroy(id: string) {
+    confirmingStatus = worktreeStatuses.get(id) ?? null;
     confirmingRemoveId = id;
   }
 
@@ -179,25 +183,16 @@
               {:else if item.id !== MAIN_WORKSPACE_ID && readyWorktreeIds.has(item.id)}
                 <span class="icon-[uil--check] absolute inset-0 block size-4 text-success" title="Ready to integrate"></span>
               {:else if item.id !== MAIN_WORKSPACE_ID}
-                <span
-                  role="button"
-                  tabindex="-1"
+                <button
                   onclick={(e) => {
                     e.stopPropagation();
                     promptDestroy(item.id);
-                  }}
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      promptDestroy(item.id);
-                    }
                   }}
                   class="absolute inset-0 flex cursor-pointer items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
                   aria-label="Destroy worktree"
                 >
                   <span class="icon-[uil--archive] block size-3.5"></span>
-                </span>
+                </button>
               {/if}
             </div>
           </button>
