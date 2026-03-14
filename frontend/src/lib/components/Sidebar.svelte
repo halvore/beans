@@ -1,9 +1,12 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
+  import { onDestroy } from 'svelte';
+  import { gql } from 'urql';
   import { worktreeStore, MAIN_WORKSPACE_ID, type WorktreeStatus } from '$lib/worktrees.svelte';
   import { beansStore, type Bean } from '$lib/beans.svelte';
   import { agentStatusesStore } from '$lib/agentStatuses.svelte';
   import { configStore } from '$lib/config.svelte';
+  import { client } from '$lib/graphqlClient';
   import { ui } from '$lib/uiState.svelte';
   import { typeBorders } from '$lib/styles';
   import ConfirmModal from './ConfirmModal.svelte';
@@ -33,6 +36,19 @@
       settingUp: wt.setupStatus === 'RUNNING'
     }))
   ]);
+
+  // Poll for uncommitted changes in the main repo
+  const MAIN_CHANGES_QUERY = gql`query { fileChanges { path } }`;
+  let mainHasChanges = $state(false);
+
+  async function fetchMainChanges() {
+    const result = await client.query(MAIN_CHANGES_QUERY, {}).toPromise();
+    mainHasChanges = (result.data?.fileChanges?.length ?? 0) > 0;
+  }
+
+  fetchMainChanges();
+  const mainChangesInterval = setInterval(fetchMainChanges, 3000);
+  onDestroy(() => clearInterval(mainChangesInterval));
 
   let confirmingRemoveId = $state<string | null>(null);
   let confirmingStatus = $state<WorktreeStatus | null>(null);
@@ -147,6 +163,8 @@
             <div class="relative ml-auto h-4 w-4 shrink-0 self-start mt-0.5">
               {#if agentStatusesStore.isRunning(item.id)}
                 <div class="loader absolute inset-0" transition:fade={{ duration: 200 }}></div>
+              {:else if item.id === MAIN_WORKSPACE_ID && mainHasChanges}
+                <span class="icon-[uil--exclamation-triangle] absolute inset-0 block size-4 text-warning" title="Uncommitted changes"></span>
               {:else if item.id !== MAIN_WORKSPACE_ID}
                 <span
                   role="button"
