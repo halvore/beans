@@ -360,7 +360,7 @@
 {/snippet}
 
 {#snippet tabSwitcher()}
-  <div class="flex px-3 pt-3 pb-1.5">
+  <div class="flex p-3">
     <div class="flex w-full">
       <button
         class={[
@@ -396,18 +396,13 @@
 {/snippet}
 
 {#snippet branchStatusBar()}
-  <div class="flex flex-col gap-2 border-b border-border px-3 pt-3 pb-2.5">
+  <div class="flex flex-col gap-2 border-b border-border p-3">
     {#if branchStatus.commitsBehind > 0}
       <div class="flex items-center justify-between gap-2">
-        <span class={['flex items-center gap-1.5', branchStatus.hasConflicts ? 'text-danger' : 'text-text']}>
-          {#if branchStatus.hasConflicts}
-            <span class="iconify lucide--alert-triangle size-4 shrink-0"></span>
-          {:else}
-            <span class="iconify lucide--git-branch size-4 shrink-0"></span>
-          {/if}
+        <span class="flex items-center gap-1.5 text-text">
           {branchStatus.commitsBehind} commit{branchStatus.commitsBehind === 1 ? '' : 's'} behind
           {#if branchStatus.hasConflicts}
-            <span class="text-text-muted">(conflicts expected)</span>
+            <span class="text-text-muted">(merge conflicts)</span>
           {/if}
         </span>
         <button
@@ -418,6 +413,8 @@
         >
           {#if rebaseRequested}
             Rebase requested
+          {:else if branchStatus.hasConflicts}
+            Resolve Conflicts
           {:else}
             Rebase
           {/if}

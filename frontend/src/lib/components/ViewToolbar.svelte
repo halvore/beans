@@ -71,7 +71,6 @@
       </svg>
       Terminal
     </button>
-    <div class="mr-3"></div>
   {/if}
   {#if children}
     {@render children()}

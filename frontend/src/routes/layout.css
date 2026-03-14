@@ -19,7 +19,7 @@ a,
 
 /* ── Toolbar & button utilities ──────────────── */
 .toolbar {
-  @apply flex h-14 shrink-0 items-center border-b border-border p-4;
+  @apply flex h-14 shrink-0 items-center border-b border-border p-3;
 }
 
 .btn-primary {

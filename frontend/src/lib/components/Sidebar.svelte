@@ -92,7 +92,7 @@
 </script>
 
 <nav class="flex h-full flex-col bg-surface-alt">
-  <div class="flex h-14 shrink-0 items-center border-b border-border px-3">
+  <div class="flex h-14 shrink-0 items-center border-b border-border p-3">
     <span class="text-sm font-semibold text-text">{configStore.projectName || 'beans'}</span>
   </div>
 
