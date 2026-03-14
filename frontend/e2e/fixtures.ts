@@ -1,6 +1,7 @@
 import { test as base } from '@playwright/test';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BacklogPage } from './pages/backlog-page';
@@ -8,6 +9,14 @@ import { BoardPage } from './pages/board-page';
 
 const PROJECT_ROOT = join(import.meta.dirname, '../..');
 const BASE_PORT = 22900;
+
+const GIT_ENV = {
+  ...process.env,
+  GIT_AUTHOR_NAME: 'test',
+  GIT_AUTHOR_EMAIL: 'test@test',
+  GIT_COMMITTER_NAME: 'test',
+  GIT_COMMITTER_EMAIL: 'test@test'
+};
 
 function getBinaries() {
   const beans = process.env.BEANS_BINARY;
@@ -19,10 +28,49 @@ function getBinaries() {
 }
 
 /**
- * Wait for a server to start accepting connections.
+ * Create a beans template directory via `beans init`.
+ * Called once per worker. Each test gets a fresh git repo but copies the
+ * pre-initialized .beans directory to avoid the expensive CLI invocation.
+ */
+function createBeansTemplate(beansBin: string): string {
+  const templateDir = mkdtempSync(join(tmpdir(), 'beans-e2e-template-'));
+  execFileSync('git', ['init'], { cwd: templateDir, timeout: 10_000 });
+  execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], {
+    cwd: templateDir,
+    timeout: 10_000,
+    env: GIT_ENV
+  });
+  execFileSync(beansBin, ['init'], {
+    cwd: templateDir,
+    encoding: 'utf-8',
+    timeout: 10_000
+  });
+  return templateDir;
+}
+
+/**
+ * Wait for a server to start accepting TCP connections, then verify HTTP.
+ * Uses TCP connect first (faster than full HTTP fetch for early polls).
  */
 async function waitForServer(port: number, timeoutMs = 10_000): Promise<void> {
   const start = Date.now();
+  // First, wait for TCP port to open (much faster than HTTP fetch)
+  while (Date.now() - start < timeoutMs) {
+    const connected = await new Promise<boolean>((resolve) => {
+      const socket = connect(port, '127.0.0.1');
+      socket.once('connect', () => {
+        socket.destroy();
+        resolve(true);
+      });
+      socket.once('error', () => {
+        socket.destroy();
+        resolve(false);
+      });
+    });
+    if (connected) break;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  // Then verify HTTP is actually ready
   while (Date.now() - start < timeoutMs) {
     try {
       const res = await fetch(`http://localhost:${port}/`);
@@ -30,7 +78,7 @@ async function waitForServer(port: number, timeoutMs = 10_000): Promise<void> {
     } catch {
       // not ready yet
     }
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error(`Server on port ${port} did not start within ${timeoutMs}ms`);
 }
@@ -102,13 +150,7 @@ class BeansCLI {
     execFileSync('git', ['commit', '-m', 'test commit'], {
       cwd: worktreePath,
       timeout: 10_000,
-      env: {
-        ...process.env,
-        GIT_AUTHOR_NAME: 'test',
-        GIT_AUTHOR_EMAIL: 'test@test',
-        GIT_COMMITTER_NAME: 'test',
-        GIT_COMMITTER_EMAIL: 'test@test'
-      }
+      env: GIT_ENV
     });
   }
 }
@@ -119,29 +161,41 @@ type Fixtures = {
   boardPage: BoardPage;
 };
 
+type WorkerFixtures = {
+  beansTemplate: string;
+};
+
 /**
- * Each test gets its own temp directory, beans-serve process, and port.
- * Full isolation — no shared state between tests.
+ * Each test gets its own temp directory (copied from a worker-scoped template),
+ * beans-serve process, and port. Full isolation — no shared state between tests.
  */
-export const test = base.extend<Fixtures>({
-  beans: async ({ page }, use, testInfo) => {
+export const test = base.extend<Fixtures, WorkerFixtures>({
+  // Worker-scoped: run `beans init` once per worker, copy .beans dir for each test.
+  // Fresh git repos are created per test (avoids stale git index/worktree state).
+  beansTemplate: [
+    async ({}, use) => {
+      const { beans: beansBin } = getBinaries();
+      const templateDir = createBeansTemplate(beansBin);
+      await use(templateDir);
+      rmSync(templateDir, { recursive: true, force: true });
+    },
+    { scope: 'worker' }
+  ],
+
+  beans: async ({ page, beansTemplate }, use, testInfo) => {
     const { beans: beansBin, beansServe } = getBinaries();
 
-    // Create isolated temp project directory with a git repo
+    // Fresh git repo per test (needed for worktree operations)
     const projectDir = mkdtempSync(join(tmpdir(), 'beans-e2e-'));
     execFileSync('git', ['init'], { cwd: projectDir, timeout: 10_000 });
     execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], {
       cwd: projectDir,
       timeout: 10_000,
-      env: { ...process.env, GIT_AUTHOR_NAME: 'test', GIT_AUTHOR_EMAIL: 'test@test', GIT_COMMITTER_NAME: 'test', GIT_COMMITTER_EMAIL: 'test@test' }
+      env: GIT_ENV
     });
-
-    // Initialize beans directory inside the project
-    execFileSync(beansBin, ['init'], {
-      cwd: projectDir,
-      encoding: 'utf-8',
-      timeout: 10_000
-    });
+    // Copy pre-initialized beans files from template (avoids expensive `beans init` per test)
+    cpSync(join(beansTemplate, '.beans'), join(projectDir, '.beans'), { recursive: true });
+    cpSync(join(beansTemplate, '.beans.yml'), join(projectDir, '.beans.yml'));
 
     const beansPath = join(projectDir, '.beans');
 
