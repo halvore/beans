@@ -287,7 +287,7 @@ function plainCodeExtension(): MarkedExtension {
 /**
  * Escape HTML special characters in plain text.
  */
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
