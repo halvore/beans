@@ -2,7 +2,7 @@
   import type { AgentMessage, SubagentActivity } from '$lib/agentChat.svelte';
   import { beansStore } from '$lib/beans.svelte';
   import { ui } from '$lib/uiState.svelte';
-  import { renderMarkdown } from '$lib/markdown';
+  import { renderMarkdown, linkifyBeanIds } from '$lib/markdown';
   import { fade } from 'svelte/transition';
   import { decryptText } from '$lib/actions/decryptText';
 
@@ -163,7 +163,7 @@
           </div>
         {:else if msg.role === 'INFO'}
           <div class="rounded-lg border border-border bg-surface px-3 py-2 text-text-muted">
-            <p class="whitespace-pre-wrap" use:decryptText={{ text: msg.content, immediate: settledMessageCount === -1 || i < settledMessageCount }}></p>
+            <p class="whitespace-pre-wrap" use:decryptText={{ text: msg.content, immediate: settledMessageCount === -1 || i < settledMessageCount, html: linkifyBeanIds(msg.content) }}></p>
           </div>
         {:else if msg.role === 'TOOL'}
           <div class="flex gap-2 text-text-faint">
@@ -175,10 +175,10 @@
                   onclick={() => toggleDiff(i)}
                 >
                   <span class="shrink-0 select-none">{expandedDiffs.has(i) ? '▾' : '▸'}</span>
-                  <span use:decryptText={{ text: msg.content, immediate: settledMessageCount === -1 || i < settledMessageCount }}></span>
+                  <span use:decryptText={{ text: msg.content, immediate: settledMessageCount === -1 || i < settledMessageCount, html: linkifyBeanIds(msg.content) }}></span>
                 </button>
               {:else}
-                <span use:decryptText={{ text: msg.content, immediate: settledMessageCount === -1 || i < settledMessageCount }}></span>
+                <span use:decryptText={{ text: msg.content, immediate: settledMessageCount === -1 || i < settledMessageCount, html: linkifyBeanIds(msg.content) }}></span>
               {/if}
               {#if msg.diff && expandedDiffs.has(i)}
                 <pre class="mt-1 max-h-64 overflow-auto rounded border border-border bg-surface-alt p-2 font-mono leading-relaxed">{#each msg.diff.split('\n') as line}<span class={diffLineClass(line)}>{line}

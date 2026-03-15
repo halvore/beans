@@ -21,11 +21,11 @@ const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@
 const CHAR_INTERVAL_MS = 20;
 const SCRAMBLE_WIDTH = 4;
 
-export type DecryptTextInput = string | { text: string; immediate?: boolean };
+export type DecryptTextInput = string | { text: string; immediate?: boolean; html?: string };
 
-function unpack(input: DecryptTextInput): { text: string; immediate: boolean } {
+function unpack(input: DecryptTextInput): { text: string; immediate: boolean; html?: string } {
 	if (typeof input === 'string') return { text: input, immediate: false };
-	return { text: input.text, immediate: input.immediate ?? false };
+	return { text: input.text, immediate: input.immediate ?? false, html: input.html };
 }
 
 function randomGlyph(): string {
@@ -35,10 +35,26 @@ function randomGlyph(): string {
 export function decryptText(node: HTMLElement, input: DecryptTextInput) {
 	let frameId: number | null = null;
 	let target = '';
+	// Optional pre-sanitized HTML to use as final output instead of textContent.
+	// Callers must ensure this is safe (e.g. produced by linkifyBeanIds which
+	// escapes all user text and only injects controlled <a> tags).
+	let finalHtml: string | undefined;
 	let revealed = 0;
 	let lastRevealTime = 0;
 
+	function setFinal() {
+		if (finalHtml) {
+			node.innerHTML = finalHtml;
+		} else {
+			node.textContent = target;
+		}
+	}
+
 	function render() {
+		if (revealed >= target.length) {
+			setFinal();
+			return;
+		}
 		let display = target.slice(0, revealed);
 		const end = Math.min(revealed + SCRAMBLE_WIDTH, target.length);
 		for (let i = revealed; i < end; i++) {
@@ -64,31 +80,40 @@ export function decryptText(node: HTMLElement, input: DecryptTextInput) {
 		}
 	}
 
-	function start(newTarget: string, fromIndex: number) {
+	function start(newTarget: string, newHtml: string | undefined, fromIndex: number) {
 		if (frameId !== null) cancelAnimationFrame(frameId);
 		target = newTarget;
+		finalHtml = newHtml;
 		revealed = fromIndex;
 		lastRevealTime = 0;
 		if (fromIndex < newTarget.length) {
 			frameId = requestAnimationFrame(tick);
 		} else {
-			node.textContent = newTarget;
+			setFinal();
 		}
 	}
 
-	const { text, immediate } = unpack(input);
+	const { text, immediate, html } = unpack(input);
 	if (immediate) {
 		target = text;
+		finalHtml = html;
 		revealed = text.length;
-		node.textContent = text;
+		setFinal();
 	} else {
-		start(text, 0);
+		start(text, html, 0);
 	}
 
 	return {
 		update(newInput: DecryptTextInput) {
-			const { text: newText } = unpack(newInput);
-			if (newText === target && revealed >= target.length) return;
+			const { text: newText, html: newHtml } = unpack(newInput);
+			if (newText === target && revealed >= target.length) {
+				// Text unchanged but html may have changed
+				if (newHtml !== finalHtml) {
+					finalHtml = newHtml;
+					setFinal();
+				}
+				return;
+			}
 
 			// Find common prefix so we don't re-animate already-revealed text
 			const stableLen = Math.min(revealed, target.length);
@@ -97,7 +122,7 @@ export function decryptText(node: HTMLElement, input: DecryptTextInput) {
 				common++;
 			}
 
-			start(newText, common);
+			start(newText, newHtml, common);
 		},
 		destroy() {
 			if (frameId !== null) cancelAnimationFrame(frameId);

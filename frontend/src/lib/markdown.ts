@@ -285,6 +285,30 @@ function plainCodeExtension(): MarkedExtension {
 }
 
 /**
+ * Escape HTML special characters in plain text.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Replace bean IDs (e.g. beans-s1m0) in plain text with clickable bean-link HTML.
+ * The input is HTML-escaped first, so the result is safe for innerHTML.
+ * Returns undefined if no bean IDs are found (caller can skip innerHTML).
+ */
+export function linkifyBeanIds(text: string): string | undefined {
+  const pattern = /\bbeans-[a-z0-9]{4}\b/g;
+  if (!pattern.test(text)) return undefined;
+  pattern.lastIndex = 0;
+  const escaped = escapeHtml(text);
+  return escaped.replace(pattern, (match) => `<a data-bean-id="${match}" class="bean-link">${match}</a>`);
+}
+
+/**
  * Pre-initialize the highlighter (call on app start for faster first render)
  */
 export function preloadHighlighter(): void {

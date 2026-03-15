@@ -3,7 +3,12 @@ import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 
 type ImageEntry = { id: string; media_type: string };
-type MessageEntry = { role: 'user' | 'assistant'; content: string; images?: ImageEntry[] };
+type MessageEntry = {
+  role: 'user' | 'assistant' | 'tool' | 'info';
+  content: string;
+  images?: ImageEntry[];
+  diff?: string;
+};
 type InteractionType = 'EXIT_PLAN' | 'ENTER_PLAN' | 'ASK_USER';
 
 interface PendingInteractionConfig {
@@ -95,6 +100,7 @@ class AgentSessionBuilder {
       const lines = this.messages.map((m) => {
         const entry: Record<string, unknown> = { type: 'message', role: m.role, content: m.content };
         if (m.images && m.images.length > 0) entry.images = m.images;
+        if (m.diff) entry.diff = m.diff;
         return JSON.stringify(entry);
       });
       writeFileSync(join(convDir, `${this.beanId}.jsonl`), lines.join('\n') + '\n');

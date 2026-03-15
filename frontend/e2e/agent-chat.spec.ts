@@ -4,6 +4,29 @@ import { test, expect } from './fixtures';
 import { agentSession } from './agent-session';
 
 test.describe('Agent chat', () => {
+  test('Bean IDs are autolinked in tool and info messages', async ({ page, beans }) => {
+    await agentSession('__central__', beans)
+      .withMessages([
+        { role: 'user', content: 'update the bean' },
+        { role: 'tool', content: 'Bash: beans update beans-ab12 -s in-progress' },
+        { role: 'info', content: 'Working on beans-cd34' },
+        { role: 'assistant', content: 'Done updating beans-ab12.' }
+      ])
+      .open(page);
+
+    // Tool message should have an autolinked bean ID
+    const toolBeanLink = page.locator('.bean-link[data-bean-id="beans-ab12"]').first();
+    await expect(toolBeanLink).toBeVisible({ timeout: 5000 });
+
+    // Info message should have an autolinked bean ID
+    const infoBeanLink = page.locator('.bean-link[data-bean-id="beans-cd34"]');
+    await expect(infoBeanLink).toBeVisible({ timeout: 5000 });
+
+    // Assistant message should also have an autolinked bean ID (via renderMarkdown)
+    const assistantBeanLink = page.locator('.bean-link[data-bean-id="beans-ab12"]').last();
+    await expect(assistantBeanLink).toBeVisible({ timeout: 5000 });
+  });
+
   test('Clear button resets the conversation in the UI', async ({ page, beans }) => {
     await agentSession('__central__', beans)
       .withMessages([
