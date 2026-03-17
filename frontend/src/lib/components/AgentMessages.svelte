@@ -218,7 +218,7 @@
 
       {#each subagentActivities as activity (activity.taskId)}
         {@const activityText = `#${activity.index} ${activity.description || 'Subagent'}${activity.currentTool ? ` — ${activity.currentTool}` : ''}`}
-        <div class="text-text-faint">
+        <div class="animate-pulse text-text-faint">
           <span use:decryptText={activityText}></span>
         </div>
       {/each}
