@@ -144,6 +144,12 @@
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       send();
+    } else if (e.key === 'Tab' && e.shiftKey && !isRunning) {
+      e.preventDefault();
+      onSetMode(agentMode === 'plan' ? 'act' : 'plan');
+    } else if (e.key === 'Escape' && isRunning) {
+      e.preventDefault();
+      onStop();
     }
   }
 </script>
