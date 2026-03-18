@@ -124,6 +124,11 @@ type AgentConfig struct {
 	// Valid values: "act" (fully autonomous), "plan" (read-only).
 	// Default: "act"
 	DefaultMode PermissionMode `yaml:"default_mode,omitempty"`
+
+	// DefaultEffort is the default thinking effort level for new agent sessions.
+	// Valid values: "low", "medium", "high", "max".
+	// When omitted, new sessions start with no effort override (uses CLI default).
+	DefaultEffort string `yaml:"default_effort,omitempty"`
 }
 
 // ProjectConfig defines project-level settings.
@@ -748,6 +753,22 @@ func (c *Config) GetDefaultMode() PermissionMode {
 		return PermissionModeAct // backwards-compatible alias
 	default:
 		return PermissionModeAct
+	}
+}
+
+// GetDefaultEffort returns the raw configured default effort level for agent sessions.
+// Returns empty string if not set. Use IsValidEffortLevel to validate before use.
+func (c *Config) GetDefaultEffort() string {
+	return c.Agent.DefaultEffort
+}
+
+// IsValidEffortLevel returns true if the effort level is a valid value.
+func IsValidEffortLevel(effort string) bool {
+	switch effort {
+	case "low", "medium", "high", "max":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -27,8 +27,18 @@ type OnTurnCompleteFunc func(beanID string)
 type DefaultMode string
 
 const (
-	DefaultModeAct DefaultMode = "act"
+	DefaultModeAct  DefaultMode = "act"
 	DefaultModePlan DefaultMode = "plan"
+)
+
+// EffortLevel controls the thinking effort for new agent sessions.
+type EffortLevel string
+
+const (
+	EffortLevelLow    EffortLevel = "low"
+	EffortLevelMedium EffortLevel = "medium"
+	EffortLevelHigh   EffortLevel = "high"
+	EffortLevelMax    EffortLevel = "max"
 )
 
 // Manager manages agent sessions — one per worktree (keyed by beanID).
@@ -42,7 +52,8 @@ type Manager struct {
 	systemPromptProvider  SystemPromptProvider
 	onFirstUserMessage    OnFirstUserMessageFunc
 	onTurnComplete        OnTurnCompleteFunc
-	defaultMode DefaultMode
+	defaultMode   DefaultMode
+	defaultEffort EffortLevel
 
 	subMu       sync.Mutex
 	subscribers map[string][]chan struct{}
@@ -122,15 +133,9 @@ func (m *Manager) GetSession(beanID string) *Session {
 			m.mu.Unlock()
 			return &snap
 		}
-		s = &Session{
-			ID:           beanID,
-			AgentType:    "claude",
-			Status:       StatusIdle,
-			Messages:     msgs,
-			SessionID:    sessionID,
-			streamingIdx: -1,
-		}
-		m.applyDefaultMode(s)
+		s = m.newBaseSession(beanID)
+		s.Messages = msgs
+		s.SessionID = sessionID
 		m.sessions[beanID] = s
 		m.mu.Unlock()
 	}
@@ -327,13 +332,7 @@ func (m *Manager) AddInfoMessage(beanID, content string) {
 	m.mu.Lock()
 	session, ok := m.sessions[beanID]
 	if !ok {
-		session = &Session{
-			ID:           beanID,
-			AgentType:    "claude",
-			Status:       StatusIdle,
-			streamingIdx: -1,
-		}
-		m.applyDefaultMode(session)
+		session = m.newBaseSession(beanID)
 		m.sessions[beanID] = session
 	}
 	session.Messages = append(session.Messages, msg)
@@ -356,13 +355,8 @@ func (m *Manager) SetPlanMode(beanID string, planMode bool) error {
 	session, hasSession := m.sessions[beanID]
 	if !hasSession {
 		// Create session in memory so the mode is set before any messages
-		session = &Session{
-			ID:           beanID,
-			AgentType:    "claude",
-			Status:       StatusIdle,
-			PlanMode:     planMode,
-			streamingIdx: -1,
-		}
+		session = m.newBaseSession(beanID)
+		session.PlanMode = planMode
 		m.sessions[beanID] = session
 		m.mu.Unlock()
 		m.notify(beanID)
@@ -397,13 +391,8 @@ func (m *Manager) SetActMode(beanID string, actMode bool) error {
 	m.mu.Lock()
 	session, hasSession := m.sessions[beanID]
 	if !hasSession {
-		session = &Session{
-			ID:           beanID,
-			AgentType:    "claude",
-			Status:       StatusIdle,
-			ActMode:     actMode,
-			streamingIdx: -1,
-		}
+		session = m.newBaseSession(beanID)
+		session.ActMode = actMode
 		m.sessions[beanID] = session
 		m.mu.Unlock()
 		m.notify(beanID)
@@ -580,6 +569,25 @@ func (m *Manager) Shutdown() {
 	wg.Wait()
 }
 
+// SetDefaultEffort sets the default effort level applied to newly created sessions.
+// Must be called during initialization, before any sessions are created.
+func (m *Manager) SetDefaultEffort(effort EffortLevel) {
+	m.defaultEffort = effort
+}
+
+// newBaseSession returns a freshly initialized session with default mode and effort applied.
+func (m *Manager) newBaseSession(beanID string) *Session {
+	s := &Session{
+		ID:           beanID,
+		AgentType:    "claude",
+		Status:       StatusIdle,
+		Effort:       string(m.defaultEffort),
+		streamingIdx: -1,
+	}
+	m.applyDefaultMode(s)
+	return s
+}
+
 // applyDefaultMode sets ActMode and PlanMode on a session based on the manager's default.
 func (m *Manager) applyDefaultMode(s *Session) {
 	switch m.defaultMode {
@@ -595,14 +603,8 @@ func (m *Manager) applyDefaultMode(s *Session) {
 // loadOrCreateSession loads a session from disk if persisted, or creates a new one.
 // Must be called with m.mu held.
 func (m *Manager) loadOrCreateSession(beanID, workDir string) *Session {
-	session := &Session{
-		ID:           beanID,
-		AgentType:    "claude",
-		Status:       StatusIdle,
-		WorkDir:      workDir,
-		streamingIdx: -1,
-	}
-	m.applyDefaultMode(session)
+	session := m.newBaseSession(beanID)
+	session.WorkDir = workDir
 
 	if m.systemPromptProvider != nil {
 		session.SystemPrompt = m.systemPromptProvider(beanID)

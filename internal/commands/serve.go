@@ -188,6 +188,9 @@ func runServer(port int, origins []string) error {
 		}
 		return sb.String()
 	}, agent.DefaultMode(cfg.GetDefaultMode()))
+	if effort := cfg.GetDefaultEffort(); config.IsValidEffortLevel(effort) {
+		agentMgr.SetDefaultEffort(agent.EffortLevel(effort))
+	}
 	defer agentMgr.Shutdown()
 
 	// Inject a system prompt that tells the agent which worktree/directory it's in.
