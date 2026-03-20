@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hmans/beans/pkg/config"
+	"github.com/hmans/beans/pkg/localregistry"
 )
 
 func TestResolveBeansPath(t *testing.T) {
@@ -126,6 +127,129 @@ func TestResolveBeansPath(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "does not exist or is not a directory") {
 			t.Errorf("expected 'does not exist' error, got %q", err.Error())
+		}
+	})
+}
+
+func TestLoadFromLocalRegistry(t *testing.T) {
+	t.Run("returns default config when registry does not exist", func(t *testing.T) {
+		localDir := t.TempDir()
+		t.Setenv(localregistry.EnvLocalDir, localDir)
+		// No registry.yml exists
+
+		projectDir := t.TempDir()
+		cfg, err := loadFromLocalRegistry(projectDir)
+		if err != nil {
+			t.Fatalf("loadFromLocalRegistry() error = %v", err)
+		}
+		if cfg.ConfigDir() != projectDir {
+			t.Errorf("expected configDir=%q, got %q", projectDir, cfg.ConfigDir())
+		}
+	})
+
+	t.Run("returns default config when project not in registry", func(t *testing.T) {
+		localDir := t.TempDir()
+		t.Setenv(localregistry.EnvLocalDir, localDir)
+
+		// Create an empty registry
+		reg := &localregistry.Registry{}
+		if err := reg.Save(); err != nil {
+			t.Fatalf("failed to save registry: %v", err)
+		}
+
+		projectDir := t.TempDir()
+		cfg, err := loadFromLocalRegistry(projectDir)
+		if err != nil {
+			t.Fatalf("loadFromLocalRegistry() error = %v", err)
+		}
+		if cfg.ConfigDir() != projectDir {
+			t.Errorf("expected configDir=%q, got %q", projectDir, cfg.ConfigDir())
+		}
+	})
+
+	t.Run("loads config from local registry when project is registered", func(t *testing.T) {
+		localDir := t.TempDir()
+		t.Setenv(localregistry.EnvLocalDir, localDir)
+
+		projectDir := t.TempDir()
+
+		// Register the project
+		reg := &localregistry.Registry{}
+		entry, err := reg.Register(projectDir, "test-project")
+		if err != nil {
+			t.Fatalf("failed to register project: %v", err)
+		}
+		if err := reg.Save(); err != nil {
+			t.Fatalf("failed to save registry: %v", err)
+		}
+
+		// Create a config file in the local project directory
+		localProjectDir, err := reg.ProjectDir(entry.Slug)
+		if err != nil {
+			t.Fatalf("failed to get project dir: %v", err)
+		}
+		cfgToSave := config.DefaultWithPrefix("test-project-")
+		cfgToSave.Project.Name = "test-project"
+		cfgToSave.SetConfigDir(localProjectDir)
+		if err := cfgToSave.Save(localProjectDir); err != nil {
+			t.Fatalf("failed to save config: %v", err)
+		}
+
+		// Load from local registry
+		cfg, err := loadFromLocalRegistry(projectDir)
+		if err != nil {
+			t.Fatalf("loadFromLocalRegistry() error = %v", err)
+		}
+
+		// Config should be loaded from the local project directory
+		if cfg.ConfigDir() != localProjectDir {
+			t.Errorf("expected configDir=%q, got %q", localProjectDir, cfg.ConfigDir())
+		}
+		if cfg.GetProjectName() != "test-project" {
+			t.Errorf("expected project name %q, got %q", "test-project", cfg.GetProjectName())
+		}
+		if cfg.Beans.Prefix != "test-project-" {
+			t.Errorf("expected prefix %q, got %q", "test-project-", cfg.Beans.Prefix)
+		}
+	})
+
+	t.Run("resolves beans path from local registry config", func(t *testing.T) {
+		localDir := t.TempDir()
+		t.Setenv(localregistry.EnvLocalDir, localDir)
+
+		projectDir := t.TempDir()
+
+		// Register the project
+		reg := &localregistry.Registry{}
+		entry, err := reg.Register(projectDir, "test-project")
+		if err != nil {
+			t.Fatalf("failed to register project: %v", err)
+		}
+		if err := reg.Save(); err != nil {
+			t.Fatalf("failed to save registry: %v", err)
+		}
+
+		// Create config in local project dir
+		localProjectDir, err := reg.ProjectDir(entry.Slug)
+		if err != nil {
+			t.Fatalf("failed to get project dir: %v", err)
+		}
+		cfgToSave := config.DefaultWithPrefix("test-project-")
+		cfgToSave.SetConfigDir(localProjectDir)
+		if err := cfgToSave.Save(localProjectDir); err != nil {
+			t.Fatalf("failed to save config: %v", err)
+		}
+
+		// Load config and resolve beans path
+		cfg, err := loadFromLocalRegistry(projectDir)
+		if err != nil {
+			t.Fatalf("loadFromLocalRegistry() error = %v", err)
+		}
+
+		beansDir := cfg.ResolveBeansPath()
+		expectedBeansDir := filepath.Join(localProjectDir, ".beans")
+		if beansDir != expectedBeansDir {
+			t.Errorf("expected beans path %q, got %q", expectedBeansDir, beansDir)
 		}
 	})
 }
