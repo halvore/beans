@@ -1,11 +1,11 @@
 ---
 # beans-l1eu
 title: Update config/path resolution to check local registry
-status: draft
+status: todo
 type: task
 priority: normal
 created_at: 2026-03-20T08:33:36Z
-updated_at: 2026-03-20T08:33:46Z
+updated_at: 2026-03-20T08:42:46Z
 parent: beans-lhjq
 blocked_by:
     - beans-1803

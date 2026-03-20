@@ -1,11 +1,11 @@
 ---
 # beans-1803
 title: Implement local registry read/write
-status: draft
+status: todo
 type: task
 priority: normal
 created_at: 2026-03-20T08:33:28Z
-updated_at: 2026-03-20T08:33:46Z
+updated_at: 2026-03-20T08:42:41Z
 parent: beans-lhjq
 blocked_by:
     - beans-p0af

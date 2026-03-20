@@ -1,11 +1,11 @@
 ---
 # beans-wfkc
 title: Add --local flag to beans init
-status: draft
+status: todo
 type: task
 priority: normal
 created_at: 2026-03-20T08:33:31Z
-updated_at: 2026-03-20T08:33:46Z
+updated_at: 2026-03-20T08:42:30Z
 parent: beans-lhjq
 blocked_by:
     - beans-1803
