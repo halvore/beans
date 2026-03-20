@@ -11,11 +11,13 @@ import (
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/hmans/beans/internal/agent"
+	"github.com/hmans/beans/internal/graph"
+	"github.com/hmans/beans/internal/graph/model"
+	"github.com/hmans/beans/internal/worktree"
 	"github.com/hmans/beans/pkg/beancore"
 	"github.com/hmans/beans/pkg/config"
 	"github.com/hmans/beans/pkg/safepath"
-	"github.com/hmans/beans/internal/graph"
-	"github.com/hmans/beans/internal/graph/model"
 )
 
 // viewState represents which view is currently active
@@ -32,6 +34,8 @@ const (
 	viewPriorityPicker
 	viewCreateModal
 	viewHelpOverlay
+	viewAgentChat
+	viewInteraction
 )
 
 // Two-column layout constants
@@ -86,6 +90,24 @@ type editorFinishedMsg struct {
 	err error
 }
 
+// agentUpdatedMsg is sent when any agent session changes (via global subscription)
+type agentUpdatedMsg struct{}
+
+// agentSessionMsg is sent when a specific agent session changes (per-bean subscription)
+type agentSessionMsg struct {
+	session *agent.Session
+}
+
+// startAgentMsg requests starting an agent for a bean
+type startAgentMsg struct {
+	beanID string
+}
+
+// openAgentChatMsg requests opening the agent chat for a bean
+type openAgentChatMsg struct {
+	beanID string
+}
+
 // openParentPickerMsg requests opening the parent picker for bean(s)
 type openParentPickerMsg struct {
 	beanIDs       []string // IDs of beans to update
@@ -108,10 +130,15 @@ type App struct {
 	priorityPicker priorityPickerModel
 	createModal    createModalModel
 	helpOverlay    helpOverlayModel
+	agentPanel     agentPanelModel
+	agentChat      agentChatModel
+	interaction    interactionModel
 	history        []detailModel // stack of previous detail views for back navigation
 	core           *beancore.Core
 	resolver       *graph.Resolver
 	config         *config.Config
+	agentMgr       *agent.Manager
+	worktreeMgr    *worktree.Manager
 	width          int
 	height         int
 	program        *tea.Program // reference to program for sending messages from watcher
@@ -122,27 +149,56 @@ type App struct {
 	// Modal state - tracks view behind modal pickers
 	previousState viewState
 
+	// Agent state
+	globalSubCh   chan struct{} // global agent subscription channel
+	agentChatBean string       // beanID of the agent chat currently being viewed
+	beanSubCh     chan struct{} // per-bean agent subscription channel
+
 	// Editor state - tracks bean being edited to update updated_at on save
 	editingBeanID      string
 	editingBeanModTime time.Time
 }
 
 // New creates a new TUI application
-func New(core *beancore.Core, cfg *config.Config) *App {
+func New(core *beancore.Core, cfg *config.Config, agentMgr *agent.Manager, wtMgr *worktree.Manager) *App {
 	resolver := &graph.Resolver{Core: core}
 	return &App{
-		state:    viewList,
-		core:     core,
-		resolver: resolver,
-		config:   cfg,
-		list:     newListModel(resolver, cfg),
-		preview:  newPreviewModel(nil, 0, 0),
+		state:       viewList,
+		core:        core,
+		resolver:    resolver,
+		config:      cfg,
+		agentMgr:    agentMgr,
+		worktreeMgr: wtMgr,
+		list:        newListModel(resolver, cfg),
+		preview:     newPreviewModel(nil, 0, 0),
 	}
 }
 
 // Init initializes the application
 func (a *App) Init() tea.Cmd {
-	return a.list.Init()
+	cmds := []tea.Cmd{a.list.Init()}
+	if a.agentMgr != nil {
+		a.globalSubCh = a.agentMgr.SubscribeGlobal()
+		cmds = append(cmds, waitForAgentUpdate(a.globalSubCh))
+	}
+	return tea.Batch(cmds...)
+}
+
+// waitForAgentUpdate blocks on the global subscription channel and returns an agentUpdatedMsg
+func waitForAgentUpdate(ch chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		<-ch
+		return agentUpdatedMsg{}
+	}
+}
+
+// waitForSessionUpdate blocks on a per-bean subscription channel and returns an agentSessionMsg
+func waitForSessionUpdate(mgr *agent.Manager, beanID string, ch chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		<-ch
+		session := mgr.GetSession(beanID)
+		return agentSessionMsg{session: session}
+	}
 }
 
 // isTwoColumnMode returns true if the terminal width supports two-column layout
@@ -166,10 +222,148 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.preview.height = a.height - 2
 		}
 
+	case agentUpdatedMsg:
+		// Refresh the agent panel with current session states
+		if a.agentMgr != nil {
+			a.agentPanel = a.agentPanel.refresh(a.agentMgr, a.resolver)
+
+			// Check for pending interactions
+			for _, ai := range a.agentPanel.agents {
+				if ai.pendingInteraction != nil && a.state != viewInteraction {
+					a.previousState = a.state
+					a.interaction = newInteractionModel(ai.beanID, ai.title, ai.pendingInteraction, a.width, a.height)
+					a.state = viewInteraction
+					break
+				}
+			}
+
+			return a, waitForAgentUpdate(a.globalSubCh)
+		}
+		return a, nil
+
+	case agentSessionMsg:
+		// Update the agent chat view with new session data
+		if a.state == viewAgentChat {
+			a.agentChat = a.agentChat.updateSession(msg.session)
+
+			// Check for pending interactions
+			if msg.session != nil && msg.session.PendingInteraction != nil && a.state != viewInteraction {
+				a.previousState = a.state
+				title := a.agentChatBean
+				if b, err := a.resolver.Query().Bean(context.Background(), a.agentChatBean); err == nil && b != nil {
+					title = b.Title
+				}
+				a.interaction = newInteractionModel(a.agentChatBean, title, msg.session.PendingInteraction, a.width, a.height)
+				a.state = viewInteraction
+			}
+		}
+		if a.beanSubCh != nil {
+			return a, waitForSessionUpdate(a.agentMgr, a.agentChatBean, a.beanSubCh)
+		}
+		return a, nil
+
+	case startAgentMsg:
+		if a.agentMgr == nil {
+			return a, nil
+		}
+
+		// Determine work directory
+		workDir := a.core.Root()
+		if a.worktreeMgr != nil {
+			// Worktree mode: create a worktree for this bean
+			wt, err := a.worktreeMgr.Create(msg.beanID)
+			if err == nil {
+				workDir = wt.Path
+			}
+			// In worktree mode, multiple agents can run — no need to stop others
+		} else {
+			// Direct mode: stop any existing agent for a different bean
+			running := a.agentMgr.ListRunningSessions()
+			for _, r := range running {
+				if r.BeanID != msg.beanID {
+					a.agentMgr.StopSession(r.BeanID)
+				}
+			}
+		}
+
+		// Build context message from bean
+		contextMsg := ""
+		if b, err := a.resolver.Query().Bean(context.Background(), msg.beanID); err == nil && b != nil {
+			contextMsg = fmt.Sprintf("Please work on bean %s: %q\n\nType: %s | Status: %s\n", b.ID, b.Title, b.Type, b.Status)
+			if b.Body != "" {
+				contextMsg += fmt.Sprintf("\nDescription:\n%s", b.Body)
+			}
+		}
+		if contextMsg == "" {
+			contextMsg = fmt.Sprintf("Please work on bean %s", msg.beanID)
+		}
+		_ = a.agentMgr.SendMessage(msg.beanID, workDir, contextMsg, nil)
+		// Open agent chat for this bean
+		return a, func() tea.Msg { return openAgentChatMsg{beanID: msg.beanID} }
+
+	case openAgentChatMsg:
+		// Unsubscribe from previous bean if any
+		if a.beanSubCh != nil && a.agentMgr != nil {
+			a.agentMgr.Unsubscribe(a.agentChatBean, a.beanSubCh)
+			a.beanSubCh = nil
+		}
+		a.agentChatBean = msg.beanID
+		a.previousState = a.state
+		a.state = viewAgentChat
+
+		// Get current session
+		session := a.agentMgr.GetSession(msg.beanID)
+		title := msg.beanID
+		if b, err := a.resolver.Query().Bean(context.Background(), msg.beanID); err == nil && b != nil {
+			title = b.Title
+		}
+		a.agentChat = newAgentChatModel(msg.beanID, title, session, a.width, a.height)
+
+		// Subscribe to updates
+		a.beanSubCh = a.agentMgr.Subscribe(msg.beanID)
+		return a, tea.Batch(
+			a.agentChat.Init(),
+			waitForSessionUpdate(a.agentMgr, msg.beanID, a.beanSubCh),
+		)
+
 	case tea.KeyMsg:
 		// Clear status messages on any keypress
 		a.list.statusMessage = ""
 		a.detail.statusMessage = ""
+
+		// Handle ctrl+a toggle for agent chat
+		if msg.String() == "ctrl+a" && a.agentMgr != nil {
+			if a.state == viewAgentChat {
+				// Return to previous view
+				prevState := a.previousState
+				// Unsubscribe from per-bean updates
+				if a.beanSubCh != nil {
+					a.agentMgr.Unsubscribe(a.agentChatBean, a.beanSubCh)
+					a.beanSubCh = nil
+				}
+				a.state = prevState
+				return a, nil
+			}
+			// Try to open chat for current bean or most recent agent
+			var targetBean string
+			if a.state == viewDetail && a.detail.bean != nil {
+				s := a.agentMgr.GetSession(a.detail.bean.ID)
+				if s != nil {
+					targetBean = a.detail.bean.ID
+				}
+			}
+			if targetBean == "" {
+				// Use most recently active agent
+				running := a.agentMgr.ListRunningSessions()
+				if len(running) > 0 {
+					targetBean = running[0].BeanID
+				}
+			}
+			if targetBean != "" {
+				return a, func() tea.Msg { return openAgentChatMsg{beanID: targetBean} }
+			}
+			return a, nil
+		}
 
 		// Handle key chord sequences
 		if a.state == viewList && a.list.list.FilterState() != 1 {
@@ -614,6 +808,37 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.createModal, cmd = a.createModal.Update(msg)
 	case viewHelpOverlay:
 		a.helpOverlay, cmd = a.helpOverlay.Update(msg)
+	case viewAgentChat:
+		a.agentChat, cmd = a.agentChat.Update(msg)
+		// Check if chat view wants to close
+		if a.agentChat.done {
+			if a.beanSubCh != nil && a.agentMgr != nil {
+				a.agentMgr.Unsubscribe(a.agentChatBean, a.beanSubCh)
+				a.beanSubCh = nil
+			}
+			a.state = a.previousState
+			return a, nil
+		}
+		// Check if chat view wants to send a message
+		if a.agentChat.pendingMsg != "" {
+			msg := a.agentChat.pendingMsg
+			a.agentChat.pendingMsg = ""
+			_ = a.agentMgr.SendMessage(a.agentChatBean, a.core.Root(), msg, nil)
+		}
+		// Check if chat view wants to stop the agent
+		if a.agentChat.wantStop {
+			a.agentChat.wantStop = false
+			a.agentMgr.StopSession(a.agentChatBean)
+		}
+	case viewInteraction:
+		a.interaction, cmd = a.interaction.Update(msg)
+		if a.interaction.done {
+			if a.interaction.response != "" {
+				_ = a.agentMgr.SendMessage(a.interaction.beanID, a.core.Root(), a.interaction.response, nil)
+			}
+			a.state = a.previousState
+			return a, nil
+		}
 	}
 
 	return a, cmd
@@ -661,32 +886,47 @@ func (a *App) renderTwoColumnView() string {
 
 // View renders the current view
 func (a *App) View() string {
+	var base string
 	switch a.state {
 	case viewList:
 		if a.isTwoColumnMode() {
-			return a.renderTwoColumnView()
+			base = a.renderTwoColumnView()
+		} else {
+			base = a.list.View()
 		}
-		return a.list.View()
 	case viewDetail:
-		return a.detail.View()
+		base = a.detail.View()
 	case viewTagPicker:
-		return a.tagPicker.View()
+		base = a.tagPicker.View()
 	case viewParentPicker:
-		return a.parentPicker.ModalView(a.getBackgroundView(), a.width, a.height)
+		base = a.parentPicker.ModalView(a.getBackgroundView(), a.width, a.height)
 	case viewStatusPicker:
-		return a.statusPicker.ModalView(a.getBackgroundView(), a.width, a.height)
+		base = a.statusPicker.ModalView(a.getBackgroundView(), a.width, a.height)
 	case viewTypePicker:
-		return a.typePicker.ModalView(a.getBackgroundView(), a.width, a.height)
+		base = a.typePicker.ModalView(a.getBackgroundView(), a.width, a.height)
 	case viewPriorityPicker:
-		return a.priorityPicker.ModalView(a.getBackgroundView(), a.width, a.height)
+		base = a.priorityPicker.ModalView(a.getBackgroundView(), a.width, a.height)
 	case viewBlockingPicker:
-		return a.blockingPicker.ModalView(a.getBackgroundView(), a.width, a.height)
+		base = a.blockingPicker.ModalView(a.getBackgroundView(), a.width, a.height)
 	case viewCreateModal:
-		return a.createModal.ModalView(a.getBackgroundView(), a.width, a.height)
+		base = a.createModal.ModalView(a.getBackgroundView(), a.width, a.height)
 	case viewHelpOverlay:
-		return a.helpOverlay.ModalView(a.getBackgroundView(), a.width, a.height)
+		base = a.helpOverlay.ModalView(a.getBackgroundView(), a.width, a.height)
+	case viewAgentChat:
+		base = a.agentChat.View()
+	case viewInteraction:
+		base = a.interaction.ModalView(a.getBackgroundView(), a.width, a.height)
 	}
-	return ""
+	if base == "" {
+		return ""
+	}
+
+	// Overlay agent panel on views that aren't the agent chat itself
+	if a.state != viewAgentChat && len(a.agentPanel.agents) > 0 {
+		base = a.agentPanel.Overlay(base, a.width, a.height)
+	}
+
+	return base
 }
 
 // getBackgroundView returns the view to show behind modal pickers
@@ -718,12 +958,25 @@ func getEditor() string {
 }
 
 // Run starts the TUI application with file watching
-func Run(core *beancore.Core, cfg *config.Config) error {
-	app := New(core, cfg)
+func Run(core *beancore.Core, cfg *config.Config, agentMgr *agent.Manager, wtMgr *worktree.Manager) error {
+	app := New(core, cfg, agentMgr, wtMgr)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 
 	// Store reference to program for sending messages from watcher
 	app.program = p
+
+	// Clean up agent manager on exit
+	if agentMgr != nil {
+		defer agentMgr.Shutdown()
+		defer agentMgr.UnsubscribeGlobal(app.globalSubCh)
+
+		// Refresh bean list when an agent completes a turn
+		agentMgr.SetOnTurnComplete(func(beanID string) {
+			if app.program != nil {
+				app.program.Send(beansChangedMsg{})
+			}
+		})
+	}
 
 	// Start file watching
 	if err := core.StartWatching(); err != nil {

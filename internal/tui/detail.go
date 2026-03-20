@@ -384,6 +384,12 @@ func (m detailModel) Update(msg tea.Msg) (detailModel, tea.Cmd) {
 			return m, func() tea.Msg {
 				return copyBeanIDMsg{ids: []string{m.bean.ID}}
 			}
+
+		case "a":
+			// Start or open agent for this bean
+			return m, func() tea.Msg {
+				return startAgentMsg{beanID: m.bean.ID}
+			}
 		}
 	}
 

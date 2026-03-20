@@ -88,6 +88,8 @@ func (m helpOverlayModel) View() string {
 	content.WriteString(shortcut("s", "Change status") + "\n")
 	content.WriteString(shortcut("t", "Change type") + "\n")
 	content.WriteString(shortcut("y", "Copy bean ID") + "\n")
+	content.WriteString(shortcut("a", "Start agent") + "\n")
+	content.WriteString(shortcut("ctrl+a", "Toggle agent chat") + "\n")
 	content.WriteString(shortcut("/", "Filter") + "\n")
 	content.WriteString(shortcut("g t", "Filter by tag") + "\n")
 	content.WriteString(shortcut("q", "Quit") + "\n")

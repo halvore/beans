@@ -129,6 +129,11 @@ type AgentConfig struct {
 	// Valid values: "low", "medium", "high", "max".
 	// When omitted, new sessions start with no effort override (uses CLI default).
 	DefaultEffort string `yaml:"default_effort,omitempty"`
+
+	// WorktreeMode controls whether TUI agents run in git worktrees.
+	// When true, each agent gets its own worktree, enabling multi-agent.
+	// When false (default), agents run directly in the project directory (single-agent only).
+	WorktreeMode bool `yaml:"worktree_mode,omitempty"`
 }
 
 // ProjectConfig defines project-level settings.
@@ -777,6 +782,11 @@ func (c *Config) GetDefaultMode() PermissionMode {
 	default:
 		return PermissionModeAct
 	}
+}
+
+// IsWorktreeMode returns whether TUI agents should use git worktrees for multi-agent support.
+func (c *Config) IsWorktreeMode() bool {
+	return c.Agent.WorktreeMode
 }
 
 // GetDefaultEffort returns the raw configured default effort level for agent sessions.

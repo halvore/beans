@@ -445,6 +445,13 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 						return copyBeanIDMsg{ids: []string{item.bean.ID}}
 					}
 				}
+			case "a":
+				// Start or open agent for selected bean
+				if item, ok := m.list.SelectedItem().(beanItem); ok {
+					return m, func() tea.Msg {
+						return startAgentMsg{beanID: item.bean.ID}
+					}
+				}
 			case "esc", "backspace":
 				// First clear selection if any beans are selected
 				if len(m.selectedBeans) > 0 {
