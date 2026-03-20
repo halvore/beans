@@ -3,9 +3,11 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/hmans/beans/pkg/beancore"
 	"github.com/hmans/beans/pkg/config"
+	"github.com/hmans/beans/pkg/localregistry"
 	"github.com/spf13/cobra"
 )
 
@@ -42,9 +44,24 @@ a full view of your project.`,
 				if err != nil {
 					return fmt.Errorf("getting current directory: %w", err)
 				}
-				cfg, err = config.LoadFromDirectory(cwd)
+
+				// Try to find .beans.yml in the project tree
+				configFile, err := config.FindConfig(cwd)
 				if err != nil {
-					return fmt.Errorf("loading config: %w", err)
+					return fmt.Errorf("finding config: %w", err)
+				}
+
+				if configFile != "" {
+					cfg, err = config.Load(configFile)
+					if err != nil {
+						return fmt.Errorf("loading config: %w", err)
+					}
+				} else {
+					// No config in project tree — check local registry
+					cfg, err = loadFromLocalRegistry(cwd)
+					if err != nil {
+						return fmt.Errorf("loading config: %w", err)
+					}
 				}
 			}
 
@@ -94,6 +111,34 @@ func resolveBeansPath(flagPath string, c *config.Config) (string, error) {
 	}
 
 	return root, nil
+}
+
+// loadFromLocalRegistry checks the local registry for a project matching the
+// given directory. If found, loads config from the local project directory.
+// Returns a default config anchored at dir if not found in the registry.
+func loadFromLocalRegistry(dir string) (*config.Config, error) {
+	reg, err := localregistry.Load()
+	if err != nil {
+		// Registry doesn't exist or can't be read — fall back to default
+		cfg := config.Default()
+		cfg.SetConfigDir(dir)
+		return cfg, nil
+	}
+
+	entry := reg.Lookup(dir)
+	if entry == nil {
+		cfg := config.Default()
+		cfg.SetConfigDir(dir)
+		return cfg, nil
+	}
+
+	projectDir, err := reg.ProjectDir(entry.Slug)
+	if err != nil {
+		return nil, fmt.Errorf("resolving local project directory: %w", err)
+	}
+
+	configFile := filepath.Join(projectDir, config.ConfigFileName)
+	return config.Load(configFile)
 }
 
 // Execute runs the given root command and exits on error.
