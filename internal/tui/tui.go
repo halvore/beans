@@ -353,10 +353,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if targetBean == "" {
-				// Use most recently active agent
-				running := a.agentMgr.ListRunningSessions()
-				if len(running) > 0 {
-					targetBean = running[0].BeanID
+				// Use most recently active agent (check all sessions, not just running)
+				sessions := a.agentMgr.ListActiveSessions()
+				if len(sessions) > 0 {
+					targetBean = sessions[0].BeanID
 				}
 			}
 			if targetBean != "" {
@@ -817,7 +817,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.beanSubCh = nil
 			}
 			a.state = a.previousState
-			return a, nil
+			// Re-send window size so the restored view renders correctly
+			return a, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: a.width, Height: a.height}
+			}
 		}
 		// Check if chat view wants to send a message
 		if a.agentChat.pendingMsg != "" {

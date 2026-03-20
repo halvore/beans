@@ -299,7 +299,8 @@ func (m *Manager) UnsubscribeGlobal(ch chan struct{}) {
 	}
 }
 
-// ListRunningSessions returns the bean IDs and statuses of all in-memory sessions.
+// ListRunningSessions returns the bean IDs and statuses of all in-memory sessions
+// that are currently running.
 func (m *Manager) ListRunningSessions() []ActiveAgent {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -308,6 +309,17 @@ func (m *Manager) ListRunningSessions() []ActiveAgent {
 		if s.Status == StatusRunning {
 			result = append(result, ActiveAgent{BeanID: id, Status: s.Status})
 		}
+	}
+	return result
+}
+
+// ListActiveSessions returns all in-memory sessions (running, idle, error).
+func (m *Manager) ListActiveSessions() []ActiveAgent {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var result []ActiveAgent
+	for id, s := range m.sessions {
+		result = append(result, ActiveAgent{BeanID: id, Status: s.Status})
 	}
 	return result
 }

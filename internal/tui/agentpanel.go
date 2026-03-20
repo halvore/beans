@@ -26,7 +26,7 @@ type agentPanelModel struct {
 
 // refresh rebuilds the agent panel from current manager state
 func (m agentPanelModel) refresh(mgr *agent.Manager, resolver *graph.Resolver) agentPanelModel {
-	sessions := mgr.ListRunningSessions()
+	sessions := mgr.ListActiveSessions()
 	agents := make([]agentInfo, 0, len(sessions))
 
 	for _, s := range sessions {
@@ -60,9 +60,19 @@ func (m agentPanelModel) View() string {
 
 	var b strings.Builder
 
-	// Header
+	// Header — show running count vs total
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(ui.ColorPrimary)
-	b.WriteString(headerStyle.Render(fmt.Sprintf("Agents: %d", len(m.agents))))
+	running := 0
+	for _, a := range m.agents {
+		if a.status == agent.StatusRunning {
+			running++
+		}
+	}
+	headerText := fmt.Sprintf("Agents: %d", len(m.agents))
+	if running > 0 {
+		headerText = fmt.Sprintf("Agents: %d (%d running)", len(m.agents), running)
+	}
+	b.WriteString(headerStyle.Render(headerText))
 	b.WriteString("\n")
 
 	// Per-agent lines (cap at 6 to avoid taking too much space)

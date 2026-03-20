@@ -80,7 +80,7 @@ func (m agentChatModel) Update(msg tea.Msg) (agentChatModel, tea.Cmd) {
 				m.input.Reset()
 			}
 			return m, nil
-		case "ctrl+s":
+		case "ctrl+x":
 			m.wantStop = true
 			return m, nil
 		}
@@ -145,7 +145,7 @@ func (m agentChatModel) View() string {
 
 	// Footer
 	footer := helpKeyStyle.Render("enter") + " " + helpStyle.Render("send") + "  " +
-		helpKeyStyle.Render("ctrl+s") + " " + helpStyle.Render("stop") + "  " +
+		helpKeyStyle.Render("ctrl+x") + " " + helpStyle.Render("stop") + "  " +
 		helpKeyStyle.Render("ctrl+a/esc") + " " + helpStyle.Render("back")
 
 	return header + "\n" + m.viewport.View() + "\n" + inputView + "\n" + footer

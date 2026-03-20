@@ -121,7 +121,7 @@ func TestParseStreamLine(t *testing.T) {
 		{
 			name:  "system event (ignored)",
 			input: `{"type":"system","subtype":"init","session_id":"abc"}`,
-			want:  parsedEvent{Type: eventUnknown},
+			want:  parsedEvent{Type: eventIgnored},
 		},
 		{
 			name:  "unknown event type",

@@ -179,6 +179,8 @@ func parseStreamLine(line []byte) parsedEvent {
 				TaskID:   ev.TaskID,
 			}
 		}
+		// Other system subtypes (init, etc.) are recognized but not actionable
+		return parsedEvent{Type: eventIgnored}
 
 	case "user":
 		// Tool result / user message events — no UI action needed, but used
