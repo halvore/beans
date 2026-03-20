@@ -161,6 +161,12 @@ type Config struct {
 	// configDir is the directory containing the config file (not serialized)
 	// Used to resolve relative paths
 	configDir string `yaml:"-"`
+
+	// projectRoot is the actual project directory (not serialized).
+	// For in-repo configs this equals configDir. For local registry configs
+	// this is the original project path (e.g., the git repo root), while
+	// configDir points to the local storage directory.
+	projectRoot string `yaml:"-"`
 }
 
 // BeansConfig defines settings for bean creation.
@@ -329,6 +335,23 @@ func (c *Config) ConfigDir() string {
 // SetConfigDir sets the config directory (for testing or when creating new configs).
 func (c *Config) SetConfigDir(dir string) {
 	c.configDir = dir
+}
+
+// ProjectRoot returns the actual project directory (the git repo root).
+// For in-repo configs this equals ConfigDir(). For local registry configs
+// this is the original project path where the user's code lives.
+func (c *Config) ProjectRoot() string {
+	if c.projectRoot != "" {
+		return c.projectRoot
+	}
+	return c.configDir
+}
+
+// SetProjectRoot sets the actual project directory. Used when beans are
+// stored in a local registry and the config directory differs from the
+// project directory.
+func (c *Config) SetProjectRoot(dir string) {
+	c.projectRoot = dir
 }
 
 // Save writes the configuration to the config file with helpful comments.

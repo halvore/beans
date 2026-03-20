@@ -213,6 +213,49 @@ func TestLoadFromLocalRegistry(t *testing.T) {
 		}
 	})
 
+	t.Run("sets project root to actual project path", func(t *testing.T) {
+		localDir := t.TempDir()
+		t.Setenv(localregistry.EnvLocalDir, localDir)
+
+		projectDir := t.TempDir()
+
+		// Register the project
+		reg := &localregistry.Registry{}
+		entry, err := reg.Register(projectDir, "test-project")
+		if err != nil {
+			t.Fatalf("failed to register project: %v", err)
+		}
+		if err := reg.Save(); err != nil {
+			t.Fatalf("failed to save registry: %v", err)
+		}
+
+		// Create a config file in the local project directory
+		localProjectDir, err := reg.ProjectDir(entry.Slug)
+		if err != nil {
+			t.Fatalf("failed to get project dir: %v", err)
+		}
+		cfgToSave := config.DefaultWithPrefix("test-project-")
+		cfgToSave.SetConfigDir(localProjectDir)
+		if err := cfgToSave.Save(localProjectDir); err != nil {
+			t.Fatalf("failed to save config: %v", err)
+		}
+
+		// Load from local registry
+		cfg, err := loadFromLocalRegistry(projectDir)
+		if err != nil {
+			t.Fatalf("loadFromLocalRegistry() error = %v", err)
+		}
+
+		// ProjectRoot should be the actual project directory, not the local registry dir
+		if cfg.ProjectRoot() != projectDir {
+			t.Errorf("expected ProjectRoot=%q, got %q", projectDir, cfg.ProjectRoot())
+		}
+		// ConfigDir should still be the local project directory
+		if cfg.ConfigDir() != localProjectDir {
+			t.Errorf("expected ConfigDir=%q, got %q", localProjectDir, cfg.ConfigDir())
+		}
+	})
+
 	t.Run("resolves beans path from local registry config", func(t *testing.T) {
 		localDir := t.TempDir()
 		t.Setenv(localregistry.EnvLocalDir, localDir)
