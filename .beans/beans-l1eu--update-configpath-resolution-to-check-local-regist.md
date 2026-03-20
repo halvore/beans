@@ -1,11 +1,11 @@
 ---
 # beans-l1eu
 title: Update config/path resolution to check local registry
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-03-20T08:33:36Z
-updated_at: 2026-03-20T09:12:52Z
+updated_at: 2026-03-20T09:15:26Z
 parent: beans-lhjq
 blocked_by:
     - beans-1803
@@ -26,3 +26,13 @@ The fallback order becomes:
 2. .beans.yml in project tree (walk up)
 3. Local registry lookup for cwd
 4. Error: not initialized
+
+
+## Summary of Changes
+
+Modified `internal/commands/root.go` to add local registry fallback when no `.beans.yml` is found in the project tree:
+
+- Split the config loading in `PersistentPreRunE` to first try `FindConfig()`, then fall back to `loadFromLocalRegistry()`
+- New `loadFromLocalRegistry()` function checks the local registry for the cwd, loads config from the local project directory if found, or returns a default config
+- Keeps `pkg/config` dependency-free — the local registry import stays in the commands layer
+- Added 4 tests covering all fallback scenarios
