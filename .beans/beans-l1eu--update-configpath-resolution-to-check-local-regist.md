@@ -1,0 +1,28 @@
+---
+# beans-l1eu
+title: Update config/path resolution to check local registry
+status: draft
+type: task
+priority: normal
+created_at: 2026-03-20T08:33:36Z
+updated_at: 2026-03-20T08:33:46Z
+parent: beans-lhjq
+blocked_by:
+    - beans-1803
+---
+
+Modify the config and beans path resolution logic so that when no .beans.yml is found walking up from cwd:
+1. Check $HOME/.local/beans/registry.yml for the current project path
+2. If found, use the local beans directory as the beans path
+3. Load config from the local directory
+
+This affects:
+- `config.LoadFromDirectory()` / `config.FindConfig()`
+- `resolveBeansPath()` in internal/commands/root.go
+- Any other path resolution that currently assumes .beans.yml is in the project tree
+
+The fallback order becomes:
+1. --beans-path flag / BEANS_PATH env
+2. .beans.yml in project tree (walk up)
+3. Local registry lookup for cwd
+4. Error: not initialized
