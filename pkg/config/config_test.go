@@ -1498,6 +1498,34 @@ func TestSaveOmitsEmptyProjectSection(t *testing.T) {
 	}
 }
 
+func TestProjectRoot(t *testing.T) {
+	t.Run("returns configDir when projectRoot not set", func(t *testing.T) {
+		cfg := Default()
+		cfg.SetConfigDir("/some/project")
+		if cfg.ProjectRoot() != "/some/project" {
+			t.Errorf("ProjectRoot() = %q, want %q", cfg.ProjectRoot(), "/some/project")
+		}
+	})
+
+	t.Run("returns projectRoot when set", func(t *testing.T) {
+		cfg := Default()
+		cfg.SetConfigDir("/local/registry/dir")
+		cfg.SetProjectRoot("/actual/project/dir")
+		if cfg.ProjectRoot() != "/actual/project/dir" {
+			t.Errorf("ProjectRoot() = %q, want %q", cfg.ProjectRoot(), "/actual/project/dir")
+		}
+	})
+
+	t.Run("configDir is independent of projectRoot", func(t *testing.T) {
+		cfg := Default()
+		cfg.SetConfigDir("/local/registry/dir")
+		cfg.SetProjectRoot("/actual/project/dir")
+		if cfg.ConfigDir() != "/local/registry/dir" {
+			t.Errorf("ConfigDir() = %q, want %q", cfg.ConfigDir(), "/local/registry/dir")
+		}
+	})
+}
+
 func TestGetCORSOrigins(t *testing.T) {
 	t.Run("returns defaults when not configured", func(t *testing.T) {
 		cfg := Default()

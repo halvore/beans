@@ -138,7 +138,13 @@ func loadFromLocalRegistry(dir string) (*config.Config, error) {
 	}
 
 	configFile := filepath.Join(projectDir, config.ConfigFileName)
-	return config.Load(configFile)
+	cfg, err := config.Load(configFile)
+	if err != nil {
+		return nil, err
+	}
+	// The actual project lives at entry.Path, not in the local registry dir.
+	cfg.SetProjectRoot(entry.Path)
+	return cfg, nil
 }
 
 // Execute runs the given root command and exits on error.

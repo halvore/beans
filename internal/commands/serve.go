@@ -110,10 +110,18 @@ func runServer(port int, origins []string) error {
 		}
 		c.Next()
 	})
+	// Resolve the actual project root (git repo directory). For in-repo
+	// configs this is the parent of .beans/; for local registry configs it
+	// is the original project path stored in the registry.
+	projectRoot := cfg.ProjectRoot()
+	if projectRoot == "" {
+		projectRoot = filepath.Dir(core.Root())
+	}
+
 	// Resolve worktree root directory (default: ~/.beans/worktrees/<project>/)
 	projectName := cfg.GetProjectName()
 	if projectName == "" {
-		projectName = filepath.Base(cfg.ConfigDir())
+		projectName = filepath.Base(projectRoot)
 	}
 	worktreeRoot, err := cfg.ResolveWorktreePath(projectName)
 	if err != nil {
@@ -130,7 +138,7 @@ func runServer(port int, origins []string) error {
 		log.Printf("[beans] WARNING: found old worktrees in %s — worktrees are now created in %s. You may want to recreate existing worktrees and remove the old directory.", oldWorktreeDir, worktreeRoot)
 	}
 
-	wtManager := worktree.NewManager(cfg.ConfigDir(), worktreeRoot, cfg.GetWorktreeBaseRef(), cfg.GetWorktreeSetup())
+	wtManager := worktree.NewManager(projectRoot, worktreeRoot, cfg.GetWorktreeBaseRef(), cfg.GetWorktreeSetup())
 
 	// Watch existing worktrees for bean changes
 	if existingWTs, err := wtManager.List(); err == nil {
@@ -203,7 +211,7 @@ func runServer(port int, origins []string) error {
 	// its workspace identity.
 	agentMgr.SetSystemPromptProvider(func(beanID string) string {
 		if beanID == graph.CentralSessionID {
-			return fmt.Sprintf("You are the central planning agent for the beans project. Your working directory is the main repository at: %s\nNEVER merge pull requests. After creating a PR, stop and report the URL. Do not run `gh pr merge` or any equivalent.\nNEVER assume CI checks are absent. Checks take time to register after a push. If `gh pr checks` returns empty, it means checks haven't started yet, not that none are configured.", filepath.Dir(core.Root()))
+			return fmt.Sprintf("You are the central planning agent for the beans project. Your working directory is the main repository at: %s\nNEVER merge pull requests. After creating a PR, stop and report the URL. Do not run `gh pr merge` or any equivalent.\nNEVER assume CI checks are absent. Checks take time to register after a push. If `gh pr checks` returns empty, it means checks haven't started yet, not that none are configured.", projectRoot)
 		}
 		wtPath := wtManager.WorktreePath(beanID)
 		if wtPath == "" {
@@ -265,7 +273,6 @@ func runServer(port int, origins []string) error {
 	}
 
 	// Detect git forge (GitHub, GitLab, etc.) for PR integration
-	projectRoot := filepath.Dir(core.Root())
 	forgeProvider := forge.Detect(projectRoot)
 	if forgeProvider != nil {
 		fmt.Printf("[beans] detected forge: %s (using %s CLI)\n", forgeProvider.Name(), forgeProvider.CLIName())
@@ -377,7 +384,7 @@ func runServer(port int, origins []string) error {
 	})
 
 	// Terminal WebSocket endpoint
-	RegisterTerminalRoute(router, termMgr, wtManager, checker.CheckOriginFunc(), filepath.Dir(core.Root()))
+	RegisterTerminalRoute(router, termMgr, wtManager, checker.CheckOriginFunc(), projectRoot)
 
 	// Serve the embedded frontend SPA
 	router.NoRoute(gin.WrapH(web.Handler()))
