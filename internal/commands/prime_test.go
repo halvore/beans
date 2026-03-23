@@ -178,8 +178,8 @@ func TestDiscoverSkills(t *testing.T) {
 		}
 
 		// Write test skill files
-		os.WriteFile(filepath.Join(skillsDir, "plan.md"), []byte("# /plan — Critical Bean Planning\n\nDetails here."), 0644)
-		os.WriteFile(filepath.Join(skillsDir, "review.md"), []byte("# /review — Pre-PR Code Review\n\nDetails here."), 0644)
+		os.WriteFile(filepath.Join(skillsDir, "bplan.md"), []byte("# /bplan — Critical Bean Planning\n\nDetails here."), 0644)
+		os.WriteFile(filepath.Join(skillsDir, "breview.md"), []byte("# /breview — Pre-PR Code Review\n\nDetails here."), 0644)
 		// Non-md files should be ignored
 		os.WriteFile(filepath.Join(skillsDir, "notes.txt"), []byte("not a skill"), 0644)
 
@@ -190,14 +190,14 @@ func TestDiscoverSkills(t *testing.T) {
 		}
 
 		// Skills should be sorted alphabetically (readdir order)
-		if skills[0].Name != "plan" {
-			t.Errorf("skills[0].Name = %q, want \"plan\"", skills[0].Name)
+		if skills[0].Name != "bplan" {
+			t.Errorf("skills[0].Name = %q, want \"bplan\"", skills[0].Name)
 		}
 		if skills[0].Description != "Critical Bean Planning" {
 			t.Errorf("skills[0].Description = %q, want \"Critical Bean Planning\"", skills[0].Description)
 		}
-		if skills[1].Name != "review" {
-			t.Errorf("skills[1].Name = %q, want \"review\"", skills[1].Name)
+		if skills[1].Name != "breview" {
+			t.Errorf("skills[1].Name = %q, want \"breview\"", skills[1].Name)
 		}
 		if skills[1].Description != "Pre-PR Code Review" {
 			t.Errorf("skills[1].Description = %q, want \"Pre-PR Code Review\"", skills[1].Description)
@@ -231,7 +231,7 @@ func TestExtractSkillDescription(t *testing.T) {
 	}{
 		{
 			name:    "heading with separator",
-			content: "# /plan — Critical Bean Planning\n\nDetails.",
+			content: "# /bplan — Critical Bean Planning\n\nDetails.",
 			want:    "Critical Bean Planning",
 		},
 		{

@@ -1,4 +1,4 @@
-# /review — Pre-PR Code Review
+# /breview — Pre-PR Code Review
 
 You are a senior engineer performing a thorough code review. Your job is to catch bugs, design issues, and missing tests before code goes into a pull request.
 

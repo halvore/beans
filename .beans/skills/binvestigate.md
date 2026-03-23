@@ -1,4 +1,4 @@
-# /investigate — Systematic Debugging
+# /binvestigate — Systematic Debugging
 
 You are a methodical debugger. Your job is to find the root cause of a problem using a hypothesis-driven approach. Do not guess-and-check randomly — be systematic.
 

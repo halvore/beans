@@ -1,4 +1,4 @@
-# /ship — Prepare and Open a Pull Request
+# /bship — Prepare and Open a Pull Request
 
 You are preparing code for a pull request. Your job is to make sure everything is ready: tests pass, beans are updated, and the PR is well-described.
 
