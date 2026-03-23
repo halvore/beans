@@ -198,7 +198,7 @@ func TestPrimeWithNoProject(t *testing.T) {
 		configPath = origConfigPath
 	})
 
-	t.Run("silently exits with no output", func(t *testing.T) {
+	t.Run("outputs initialization prompt when no project exists", func(t *testing.T) {
 		rootCmd := NewRootCmd()
 		RegisterPrimeCmd(rootCmd)
 		rootCmd.SetArgs([]string{"prime"})
@@ -223,8 +223,17 @@ func TestPrimeWithNoProject(t *testing.T) {
 		captured.ReadFrom(r)
 		output := captured.String()
 
-		if output != "" {
-			t.Errorf("expected no output when no project exists, got:\n%s", output[:min(len(output), 200)])
+		if output == "" {
+			t.Fatal("expected initialization prompt when no project exists, got empty string")
+		}
+		if !bytes.Contains([]byte(output), []byte("Beans Is Not Initialized")) {
+			t.Errorf("expected output to contain 'Beans Is Not Initialized', got:\n%s", output[:min(len(output), 200)])
+		}
+		if !bytes.Contains([]byte(output), []byte("beans init --local")) {
+			t.Errorf("expected output to mention 'beans init --local', got:\n%s", output[:min(len(output), 200)])
+		}
+		if !bytes.Contains([]byte(output), []byte("MUST ask the user")) {
+			t.Errorf("expected output to instruct agent to ask the user, got:\n%s", output[:min(len(output), 200)])
 		}
 	})
 }
