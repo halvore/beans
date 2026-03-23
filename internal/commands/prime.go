@@ -42,6 +42,7 @@ type promptData struct {
 	Statuses      []config.StatusConfig
 	Priorities    []config.PriorityConfig
 	Skills        []skillInfo
+	SkillsDir     string // Absolute path to the skills directory
 }
 
 // discoverSkills reads .md files from the skills directory under beansPath
@@ -149,12 +150,15 @@ var primeCmd = &cobra.Command{
 
 		beansPath := primeCfg.ResolveBeansPath()
 
+		skillsDir := filepath.Join(beansPath, "skills")
+
 		data := promptData{
 			GraphQLSchema: GetGraphQLSchema(),
 			Types:         config.DefaultTypes,
 			Statuses:      config.DefaultStatuses,
 			Priorities:    config.DefaultPriorities,
 			Skills:        discoverSkills(beansPath),
+			SkillsDir:     skillsDir,
 		}
 
 		return tmpl.Execute(os.Stdout, data)
