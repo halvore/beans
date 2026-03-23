@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hmans/beans/internal/gitutil"
 	"github.com/hmans/beans/pkg/beancore"
 	"github.com/hmans/beans/pkg/config"
 	"github.com/hmans/beans/pkg/localregistry"
@@ -126,6 +127,18 @@ func loadFromLocalRegistry(dir string) (*config.Config, error) {
 	}
 
 	entry := reg.Lookup(dir)
+	if entry == nil {
+		// If we're in a git worktree, try looking up the main worktree's path.
+		// This lets agents running in worktrees find local-storage beans.
+		if mainRoot, ok := gitutil.MainWorktreeRoot(dir); ok {
+			// Resolve symlinks so the path matches what the registry stored
+			// (e.g. /tmp -> /private/tmp on macOS).
+			if resolved, err := filepath.EvalSymlinks(mainRoot); err == nil {
+				mainRoot = resolved
+			}
+			entry = reg.Lookup(mainRoot)
+		}
+	}
 	if entry == nil {
 		cfg := config.Default()
 		cfg.SetConfigDir(dir)
