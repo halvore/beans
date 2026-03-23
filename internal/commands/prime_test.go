@@ -45,6 +45,15 @@ func TestPrimeWithLocalStorage(t *testing.T) {
 		t.Fatalf("failed to create .beans dir: %v", err)
 	}
 
+	// Install a skill so we can verify the path in the output.
+	skillsDir := filepath.Join(beansDir, "skills")
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		t.Fatalf("failed to create skills dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillsDir, "bplan.md"), []byte("# /bplan — Critical Bean Planning\n\nDetails."), 0644); err != nil {
+		t.Fatalf("failed to write skill file: %v", err)
+	}
+
 	// Save and restore working directory.
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -100,6 +109,12 @@ func TestPrimeWithLocalStorage(t *testing.T) {
 		}
 		if !bytes.Contains([]byte(output), []byte("Beans Usage Guide")) {
 			t.Errorf("expected output to contain 'Beans Usage Guide', got:\n%s", output[:min(len(output), 200)])
+		}
+
+		// The skills section should reference the actual local skills path, not .beans/skills/.
+		expectedSkillsPath := filepath.Join(beansDir, "skills")
+		if !bytes.Contains([]byte(output), []byte(expectedSkillsPath)) {
+			t.Errorf("expected output to contain actual skills path %q, got:\n%s", expectedSkillsPath, output[:min(len(output), 500)])
 		}
 	})
 }
