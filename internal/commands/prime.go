@@ -2,6 +2,7 @@ package commands
 
 import (
 	_ "embed"
+	"fmt"
 	"os"
 	"text/template"
 
@@ -11,6 +12,20 @@ import (
 
 //go:embed prompt.tmpl
 var agentPromptTemplate string
+
+const notInitializedPrompt = `<EXTREMELY_IMPORTANT>
+# Beans Is Not Initialized
+
+This project does not have beans set up yet. Before you can use beans to track work, you MUST ask the user which storage mode to use:
+
+1. **In-repo storage** (` + "`beans init`" + `): Stores beans as markdown files in a ` + "`.beans/`" + ` directory inside the repo. This is the default and recommended for most projects. Bean files are committed to the repo alongside the code.
+2. **Local storage** (` + "`beans init --local`" + `): Stores beans outside the repo in a local directory. Use this when you don't want bean files in the repo.
+
+**You MUST ask the user which option they prefer before running either command. Do NOT choose for them.**
+
+Once the user has chosen, run the appropriate command, and then re-run ` + "`beans prime`" + ` to get the full usage guide.
+</EXTREMELY_IMPORTANT>
+`
 
 // promptData holds all data needed to render the prompt template.
 type promptData struct {
@@ -61,7 +76,8 @@ var primeCmd = &cobra.Command{
 				// default beans path. Check if a .beans dir actually exists.
 				beansDir := primeCfg.ResolveBeansPath()
 				if info, statErr := os.Stat(beansDir); statErr != nil || !info.IsDir() {
-					return nil // No beans project found — silently exit
+					fmt.Fprint(os.Stdout, notInitializedPrompt)
+					return nil
 				}
 			}
 		}
