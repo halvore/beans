@@ -169,6 +169,102 @@ func TestPrimeWithInRepoConfig(t *testing.T) {
 	})
 }
 
+func TestDiscoverSkills(t *testing.T) {
+	t.Run("discovers skill files", func(t *testing.T) {
+		beansDir := t.TempDir()
+		skillsDir := filepath.Join(beansDir, "skills")
+		if err := os.MkdirAll(skillsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Write test skill files
+		os.WriteFile(filepath.Join(skillsDir, "plan.md"), []byte("# /plan — Critical Bean Planning\n\nDetails here."), 0644)
+		os.WriteFile(filepath.Join(skillsDir, "review.md"), []byte("# /review — Pre-PR Code Review\n\nDetails here."), 0644)
+		// Non-md files should be ignored
+		os.WriteFile(filepath.Join(skillsDir, "notes.txt"), []byte("not a skill"), 0644)
+
+		skills := discoverSkills(beansDir)
+
+		if len(skills) != 2 {
+			t.Fatalf("expected 2 skills, got %d", len(skills))
+		}
+
+		// Skills should be sorted alphabetically (readdir order)
+		if skills[0].Name != "plan" {
+			t.Errorf("skills[0].Name = %q, want \"plan\"", skills[0].Name)
+		}
+		if skills[0].Description != "Critical Bean Planning" {
+			t.Errorf("skills[0].Description = %q, want \"Critical Bean Planning\"", skills[0].Description)
+		}
+		if skills[1].Name != "review" {
+			t.Errorf("skills[1].Name = %q, want \"review\"", skills[1].Name)
+		}
+		if skills[1].Description != "Pre-PR Code Review" {
+			t.Errorf("skills[1].Description = %q, want \"Pre-PR Code Review\"", skills[1].Description)
+		}
+	})
+
+	t.Run("returns nil for missing directory", func(t *testing.T) {
+		skills := discoverSkills("/nonexistent/path")
+		if skills != nil {
+			t.Errorf("expected nil, got %v", skills)
+		}
+	})
+
+	t.Run("returns nil for empty directory", func(t *testing.T) {
+		beansDir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(beansDir, "skills"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		skills := discoverSkills(beansDir)
+		if skills != nil {
+			t.Errorf("expected nil, got %v", skills)
+		}
+	})
+}
+
+func TestExtractSkillDescription(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{
+			name:    "heading with separator",
+			content: "# /plan — Critical Bean Planning\n\nDetails.",
+			want:    "Critical Bean Planning",
+		},
+		{
+			name:    "heading without separator",
+			content: "# Code Review Skill\n\nDetails.",
+			want:    "Code Review Skill",
+		},
+		{
+			name:    "no heading",
+			content: "Just some text without headings.",
+			want:    "",
+		},
+		{
+			name:    "empty file",
+			content: "",
+			want:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "skill.md")
+			os.WriteFile(path, []byte(tt.content), 0644)
+
+			got := extractSkillDescription(path)
+			if got != tt.want {
+				t.Errorf("extractSkillDescription() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPrimeWithNoProject(t *testing.T) {
 	// Use a temp dir with no local registry and no config.
 	localDir := t.TempDir()

@@ -5,7 +5,7 @@ import (
 )
 
 func TestSortByStatusPriorityAndType(t *testing.T) {
-	statusNames := []string{"draft", "todo", "in-progress", "completed"}
+	statusNames := []string{"draft", "todo", "in-progress", "review", "completed"}
 	priorityNames := []string{"critical", "high", "normal", "low", "deferred"}
 	typeNames := []string{"bug", "feature", "task"}
 

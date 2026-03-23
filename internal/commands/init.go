@@ -85,6 +85,9 @@ at ~/.local/beans. The project directory will not be modified.`,
 			}
 		}
 
+		// Install default agent skills.
+		installDefaultSkills(beansDir, false)
+
 		if initJSON {
 			return output.SuccessInit(beansDir)
 		}
@@ -149,6 +152,9 @@ func initLocalProject() error {
 		}
 		return fmt.Errorf("failed to initialize beans directory: %w", err)
 	}
+
+	// Install default agent skills.
+	installDefaultSkills(beansDir, false)
 
 	// Save config alongside the local beans dir.
 	projectDir, err := reg.ProjectDir(entry.Slug)
