@@ -2,6 +2,7 @@ package commands
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -253,6 +254,73 @@ func TestLoadFromLocalRegistry(t *testing.T) {
 		// ConfigDir should still be the local project directory
 		if cfg.ConfigDir() != localProjectDir {
 			t.Errorf("expected ConfigDir=%q, got %q", localProjectDir, cfg.ConfigDir())
+		}
+	})
+
+	t.Run("resolves from git worktree to main repo registration", func(t *testing.T) {
+		localDir := t.TempDir()
+		t.Setenv(localregistry.EnvLocalDir, localDir)
+
+		// Create a git repo to serve as the main project.
+		// Resolve symlinks so registry paths match git paths (macOS /tmp -> /private/tmp).
+		projectDir, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatalf("EvalSymlinks: %v", err)
+		}
+		for _, args := range [][]string{
+			{"git", "init", "-b", "main"},
+			{"git", "config", "user.email", "test@test.com"},
+			{"git", "config", "user.name", "Test"},
+			{"git", "commit", "--allow-empty", "-m", "initial"},
+		} {
+			cmd := exec.Command(args[0], args[1:]...)
+			cmd.Dir = projectDir
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("%v failed: %s: %v", args, out, err)
+			}
+		}
+
+		// Register the project in local registry
+		reg := &localregistry.Registry{}
+		entry, err := reg.Register(projectDir, "test-project")
+		if err != nil {
+			t.Fatalf("failed to register project: %v", err)
+		}
+		if err := reg.Save(); err != nil {
+			t.Fatalf("failed to save registry: %v", err)
+		}
+
+		// Create config in local project dir
+		localProjectDir, err := reg.ProjectDir(entry.Slug)
+		if err != nil {
+			t.Fatalf("failed to get project dir: %v", err)
+		}
+		cfgToSave := config.DefaultWithPrefix("test-project-")
+		cfgToSave.Project.Name = "test-project"
+		cfgToSave.SetConfigDir(localProjectDir)
+		if err := cfgToSave.Save(localProjectDir); err != nil {
+			t.Fatalf("failed to save config: %v", err)
+		}
+
+		// Create a git worktree (different path than projectDir)
+		wtPath := filepath.Join(t.TempDir(), "worktree")
+		cmd := exec.Command("git", "worktree", "add", wtPath, "-b", "test-branch")
+		cmd.Dir = projectDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git worktree add failed: %s: %v", out, err)
+		}
+
+		// loadFromLocalRegistry should resolve from the worktree
+		cfg, err := loadFromLocalRegistry(wtPath)
+		if err != nil {
+			t.Fatalf("loadFromLocalRegistry() error = %v", err)
+		}
+
+		if cfg.GetProjectName() != "test-project" {
+			t.Errorf("expected project name %q, got %q", "test-project", cfg.GetProjectName())
+		}
+		if cfg.ConfigDir() != localProjectDir {
+			t.Errorf("expected configDir=%q, got %q", localProjectDir, cfg.ConfigDir())
 		}
 	})
 
