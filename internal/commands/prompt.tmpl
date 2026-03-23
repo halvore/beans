@@ -180,3 +180,17 @@ beans query --json '{ beans(filter: { type: ["bug"], priority: ["critical", "hig
 # Search with text
 beans query --json '{ beans(filter: { search: "authentication" }) { id title body } }'
 ```
+{{- if .Skills}}
+
+## Skills
+
+This project has the following skills available. To invoke a skill, read the full skill file from the `.beans/skills/` directory and follow its instructions.
+
+| Skill | Description |
+|-------|-------------|
+{{- range .Skills}}
+| `/{{.Name}}` | {{.Description}} |
+{{- end}}
+
+To use a skill, read the skill file (e.g. `cat .beans/skills/plan.md`) and follow the process described within.
+{{- end}}

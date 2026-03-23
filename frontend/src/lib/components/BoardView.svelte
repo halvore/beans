@@ -39,6 +39,11 @@
       color: 'bg-status-in-progress-bg text-status-in-progress-text'
     },
     {
+      status: 'review',
+      label: 'Review',
+      color: 'bg-status-review-bg text-status-review-text'
+    },
+    {
       status: 'completed',
       label: 'Completed',
       color: 'bg-status-completed-bg text-status-completed-text'

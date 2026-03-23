@@ -4,6 +4,8 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/hmans/beans/pkg/config"
@@ -27,12 +29,70 @@ Once the user has chosen, run the appropriate command, and then re-run ` + "`bea
 </EXTREMELY_IMPORTANT>
 `
 
+// skillInfo holds the name and first-line description of a skill file.
+type skillInfo struct {
+	Name        string
+	Description string
+}
+
 // promptData holds all data needed to render the prompt template.
 type promptData struct {
 	GraphQLSchema string
 	Types         []config.TypeConfig
 	Statuses      []config.StatusConfig
 	Priorities    []config.PriorityConfig
+	Skills        []skillInfo
+}
+
+// discoverSkills reads .md files from the skills directory under beansPath
+// and extracts the skill name (from filename) and description (from the
+// first heading or first non-empty line).
+func discoverSkills(beansPath string) []skillInfo {
+	skillsDir := filepath.Join(beansPath, "skills")
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		return nil
+	}
+
+	var skills []skillInfo
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+
+		name := strings.TrimSuffix(entry.Name(), ".md")
+		desc := extractSkillDescription(filepath.Join(skillsDir, entry.Name()))
+
+		skills = append(skills, skillInfo{
+			Name:        name,
+			Description: desc,
+		})
+	}
+	return skills
+}
+
+// extractSkillDescription reads the first heading from a skill file.
+// It looks for a line starting with "# " and extracts the text after
+// the " — " separator. Falls back to the full heading text, then to
+// the filename.
+func extractSkillDescription(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "# ") {
+			heading := strings.TrimPrefix(line, "# ")
+			// Look for " — " separator (e.g. "# /plan — Critical Bean Planning")
+			if idx := strings.Index(heading, " — "); idx >= 0 {
+				return strings.TrimSpace(heading[idx+len(" — "):])
+			}
+			return heading
+		}
+	}
+	return ""
 }
 
 var primeCmd = &cobra.Command{
@@ -87,11 +147,14 @@ var primeCmd = &cobra.Command{
 			return err
 		}
 
+		beansPath := primeCfg.ResolveBeansPath()
+
 		data := promptData{
 			GraphQLSchema: GetGraphQLSchema(),
 			Types:         config.DefaultTypes,
 			Statuses:      config.DefaultStatuses,
 			Priorities:    config.DefaultPriorities,
+			Skills:        discoverSkills(beansPath),
 		}
 
 		return tmpl.Execute(os.Stdout, data)

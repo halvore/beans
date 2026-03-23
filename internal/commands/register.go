@@ -20,6 +20,7 @@ func RegisterCoreCommands(root *cobra.Command) {
 	RegisterProjectsCmd(root)
 	RegisterRoadmapCmd(root)
 	RegisterShowCmd(root)
+	RegisterSkillsCmd(root)
 	RegisterUpdateCmd(root)
 	RegisterVersionCmd(root)
 

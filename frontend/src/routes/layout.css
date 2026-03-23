@@ -329,6 +329,8 @@ tr.diff-hunk td {
   --th-status-todo-text: var(--color-green-700);
   --th-status-in-progress-bg: var(--color-blue-100);
   --th-status-in-progress-text: var(--color-blue-700);
+  --th-status-review-bg: var(--color-violet-100);
+  --th-status-review-text: var(--color-violet-700);
   --th-status-completed-bg: var(--color-purple-100);
   --th-status-completed-text: var(--color-purple-700);
   --th-status-scrapped-bg: var(--color-red-100);
@@ -385,6 +387,8 @@ tr.diff-hunk td {
     --th-status-todo-text: var(--color-green-400);
     --th-status-in-progress-bg: var(--color-sky-900);
     --th-status-in-progress-text: var(--color-blue-300);
+    --th-status-review-bg: var(--color-violet-900);
+    --th-status-review-text: var(--color-violet-300);
     --th-status-completed-bg: var(--color-purple-900);
     --th-status-completed-text: var(--color-purple-300);
     --th-status-scrapped-bg: var(--color-red-950);
@@ -439,6 +443,8 @@ tr.diff-hunk td {
   --color-status-todo-text: var(--th-status-todo-text);
   --color-status-in-progress-bg: var(--th-status-in-progress-bg);
   --color-status-in-progress-text: var(--th-status-in-progress-text);
+  --color-status-review-bg: var(--th-status-review-bg);
+  --color-status-review-text: var(--th-status-review-text);
   --color-status-completed-bg: var(--th-status-completed-bg);
   --color-status-completed-text: var(--th-status-completed-text);
   --color-status-scrapped-bg: var(--th-status-scrapped-bg);

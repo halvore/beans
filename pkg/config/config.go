@@ -26,6 +26,7 @@ const (
 // Order determines sort priority: in-progress first (active work), then todo, draft, and done states last.
 var DefaultStatuses = []StatusConfig{
 	{Name: "in-progress", Color: "yellow", Description: "Currently being worked on"},
+	{Name: "review", Color: "purple", Description: "Code complete, awaiting review before merge"},
 	{Name: "todo", Color: "green", Description: "Ready to be worked on"},
 	{Name: "draft", Color: "blue", Description: "Needs refinement before it can be worked on"},
 	{Name: "completed", Color: "gray", Archive: true, Description: "Finished successfully"},
