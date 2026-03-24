@@ -74,9 +74,11 @@ sources = ["**/*.go"]
 description = "Build and run the beans-tui terminal UI"
 run = "go run ./cmd/beans-tui"
 
-[tasks.install]
+[tasks."install:local"]
+description = "Build and install beans binaries to ~/.local/bin"
 depends = "build"
 run = """
+mkdir -p ~/.local/bin
 cp beans ~/.local/bin/beans
 cp beans-serve ~/.local/bin/beans-serve
 cp beans-tui ~/.local/bin/beans-tui
