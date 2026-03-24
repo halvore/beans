@@ -166,17 +166,43 @@ func (r *Registry) Lookup(projectPath string) *ProjectEntry {
 }
 
 // LookupByRemoteURL finds a project entry by its git remote URL.
+// Normalizes URLs before comparing so that SSH and HTTPS forms of the same
+// repo are treated as equivalent (e.g. git@github.com:o/r.git matches
+// https://github.com/o/r.git).
 // Returns nil if not found or if remoteURL is empty.
 func (r *Registry) LookupByRemoteURL(remoteURL string) *ProjectEntry {
 	if remoteURL == "" {
 		return nil
 	}
+	needle := normalizeRemoteURL(remoteURL)
 	for i := range r.Projects {
-		if r.Projects[i].RemoteURL != "" && r.Projects[i].RemoteURL == remoteURL {
+		if r.Projects[i].RemoteURL != "" && normalizeRemoteURL(r.Projects[i].RemoteURL) == needle {
 			return &r.Projects[i]
 		}
 	}
 	return nil
+}
+
+// normalizeRemoteURL extracts a canonical "host/owner/repo" string from a git
+// remote URL so that SSH and HTTPS variants compare equal. Returns the original
+// string lowercased if parsing fails.
+func normalizeRemoteURL(remoteURL string) string {
+	var host, pathPart string
+
+	if m := sshRemoteRe.FindStringSubmatch(remoteURL); m != nil {
+		host = m[1]
+		pathPart = m[2]
+	} else if u, err := url.Parse(remoteURL); err == nil && u.Host != "" {
+		host = u.Host
+		pathPart = strings.TrimPrefix(u.Path, "/")
+	}
+
+	if host == "" || pathPart == "" {
+		return strings.ToLower(remoteURL)
+	}
+
+	pathPart = strings.TrimSuffix(pathPart, ".git")
+	return strings.ToLower(host + "/" + pathPart)
 }
 
 // ProjectDir returns the absolute path to a project's local beans root
