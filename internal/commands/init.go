@@ -122,8 +122,14 @@ func initLocalProject() error {
 		return fmt.Errorf("failed to load local registry: %w", err)
 	}
 
+	// Detect git remote URL for project identification.
+	var remoteURL string
+	if u, ok := gitutil.RemoteURL(dir, "origin"); ok {
+		remoteURL = u
+	}
+
 	// Register the project (idempotent — returns existing entry if already registered).
-	entry, err := reg.Register(dir, dirName)
+	entry, err := reg.Register(dir, dirName, remoteURL)
 	if err != nil {
 		if initJSON {
 			return output.Error(output.ErrFileError, err.Error())

@@ -33,7 +33,7 @@ func TestRegisterAndLookup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	entry, err := reg.Register(projectPath, "My Project")
+	entry, err := reg.Register(projectPath, "My Project", "")
 	if err != nil {
 		t.Fatalf("Register() error: %v", err)
 	}
@@ -73,8 +73,8 @@ func TestRegisterIdempotent(t *testing.T) {
 	projectPath := filepath.Join(tmp, "proj")
 	os.MkdirAll(projectPath, 0o755)
 
-	entry1, _ := reg.Register(projectPath, "proj")
-	entry2, _ := reg.Register(projectPath, "proj")
+	entry1, _ := reg.Register(projectPath, "proj", "")
+	entry2, _ := reg.Register(projectPath, "proj", "")
 
 	if entry1.Slug != entry2.Slug {
 		t.Errorf("second register changed slug: %q -> %q", entry1.Slug, entry2.Slug)
@@ -95,11 +95,11 @@ func TestRegisterSlugCollision(t *testing.T) {
 	os.MkdirAll(path1, 0o755)
 	os.MkdirAll(path2, 0o755)
 
-	e1, err := reg.Register(path1, "myapp")
+	e1, err := reg.Register(path1, "myapp", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	e2, err := reg.Register(path2, "myapp")
+	e2, err := reg.Register(path2, "myapp", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestRegisterFallbackToBasename(t *testing.T) {
 	projectPath := filepath.Join(tmp, "MyApp")
 	os.MkdirAll(projectPath, 0o755)
 
-	entry, err := reg.Register(projectPath, "")
+	entry, err := reg.Register(projectPath, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestUnregister(t *testing.T) {
 	projectPath := filepath.Join(tmp, "proj")
 	os.MkdirAll(projectPath, 0o755)
 
-	reg.Register(projectPath, "proj")
+	reg.Register(projectPath, "proj", "")
 
 	if !reg.Unregister(projectPath) {
 		t.Error("Unregister() returned false for existing project")
@@ -175,7 +175,7 @@ func TestSaveAndReload(t *testing.T) {
 	projectPath := filepath.Join(tmp, "proj")
 	os.MkdirAll(projectPath, 0o755)
 
-	reg.Register(projectPath, "My Project")
+	reg.Register(projectPath, "My Project", "")
 	if err := reg.Save(); err != nil {
 		t.Fatalf("Save() error: %v", err)
 	}
@@ -235,5 +235,104 @@ func TestProjectBeansDir(t *testing.T) {
 	expected := filepath.Join(tmp, "projects", "myapp", ".beans")
 	if dir != expected {
 		t.Errorf("ProjectBeansDir() = %q, want %q", dir, expected)
+	}
+}
+
+func TestSlugFromRemoteURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{"HTTPS with .git", "https://github.com/halvore/beans.git", "halvore-beans"},
+		{"HTTPS without .git", "https://github.com/halvore/beans", "halvore-beans"},
+		{"SSH format", "git@github.com:halvore/beans.git", "halvore-beans"},
+		{"SSH without .git", "git@github.com:halvore/beans", "halvore-beans"},
+		{"GitLab nested group", "https://gitlab.com/org/subgroup/repo.git", "subgroup-repo"},
+		{"SSH nested group", "git@gitlab.com:org/subgroup/repo.git", "subgroup-repo"},
+		{"empty string", "", ""},
+		{"not a URL", "just-a-name", ""},
+		{"single path segment HTTPS", "https://example.com/repo.git", "repo"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := slugFromRemoteURL(tt.url)
+			if got != tt.expected {
+				t.Errorf("slugFromRemoteURL(%q) = %q, want %q", tt.url, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRegisterWithRemoteURL(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv(EnvLocalDir, tmp)
+
+	reg, _ := Load()
+
+	projectPath := filepath.Join(tmp, "myproject")
+	os.MkdirAll(projectPath, 0o755)
+
+	entry, err := reg.Register(projectPath, "myproject", "https://github.com/halvore/beans.git")
+	if err != nil {
+		t.Fatalf("Register() error: %v", err)
+	}
+
+	if entry.Slug != "halvore-beans" {
+		t.Errorf("slug = %q, want %q", entry.Slug, "halvore-beans")
+	}
+	if entry.RemoteURL != "https://github.com/halvore/beans.git" {
+		t.Errorf("remote_url = %q, want %q", entry.RemoteURL, "https://github.com/halvore/beans.git")
+	}
+}
+
+func TestRegisterRemoteURLCollision(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv(EnvLocalDir, tmp)
+
+	reg, _ := Load()
+
+	path1 := filepath.Join(tmp, "a", "beans")
+	path2 := filepath.Join(tmp, "b", "beans")
+	os.MkdirAll(path1, 0o755)
+	os.MkdirAll(path2, 0o755)
+
+	// Same owner/repo on different hosts — same slug base.
+	e1, err := reg.Register(path1, "", "https://github.com/halvore/beans.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e2, err := reg.Register(path2, "", "https://gitlab.com/halvore/beans.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if e1.Slug == e2.Slug {
+		t.Error("collision not resolved: both slugs are the same")
+	}
+	if e1.Slug != "halvore-beans" {
+		t.Errorf("first slug should be 'halvore-beans', got %q", e1.Slug)
+	}
+}
+
+func TestRegisterFallsBackWithoutRemoteURL(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv(EnvLocalDir, tmp)
+
+	reg, _ := Load()
+
+	projectPath := filepath.Join(tmp, "myapp")
+	os.MkdirAll(projectPath, 0o755)
+
+	entry, err := reg.Register(projectPath, "myapp", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry.Slug != "myapp" {
+		t.Errorf("slug = %q, want %q", entry.Slug, "myapp")
+	}
+	if entry.RemoteURL != "" {
+		t.Errorf("remote_url should be empty, got %q", entry.RemoteURL)
 	}
 }
