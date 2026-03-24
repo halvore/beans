@@ -147,23 +147,20 @@ var primeCmd = &cobra.Command{
 			return err
 		}
 
-		cwd, err := os.Getwd()
+		// Discover skills from $HOME/.claude/skills/beans (where skills init installs them).
+		home, err := os.UserHomeDir()
 		if err != nil {
 			return err
 		}
-		projectDir := cwd
-		if primeCfg.ProjectRoot() != "" {
-			projectDir = primeCfg.ProjectRoot()
-		}
-		skillsDir := claudeCommandsDir(primeCfg, projectDir)
+		beansSkillsDir := filepath.Join(home, ".claude", "skills", "beans")
 
 		data := promptData{
 			GraphQLSchema: GetGraphQLSchema(),
 			Types:         config.DefaultTypes,
 			Statuses:      config.DefaultStatuses,
 			Priorities:    config.DefaultPriorities,
-			Skills:        discoverSkills(skillsDir),
-			SkillsDir:     skillsDir,
+			Skills:        discoverSkills(beansSkillsDir),
+			SkillsDir:     beansSkillsDir,
 		}
 
 		return tmpl.Execute(os.Stdout, data)

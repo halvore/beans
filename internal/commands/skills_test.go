@@ -4,13 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/hmans/beans/pkg/config"
 )
 
 func TestInstallSkills(t *testing.T) {
 	t.Run("installs all default skills", func(t *testing.T) {
-		targetDir := filepath.Join(t.TempDir(), ".claude", "commands")
+		targetDir := filepath.Join(t.TempDir(), ".claude", "skills", "beans")
 
 		installed, err := installSkills(targetDir, false)
 		if err != nil {
@@ -36,7 +34,7 @@ func TestInstallSkills(t *testing.T) {
 	})
 
 	t.Run("does not overwrite existing files", func(t *testing.T) {
-		targetDir := filepath.Join(t.TempDir(), ".claude", "commands")
+		targetDir := filepath.Join(t.TempDir(), ".claude", "skills", "beans")
 		os.MkdirAll(targetDir, 0755)
 
 		// Write a custom bplan.md
@@ -60,7 +58,7 @@ func TestInstallSkills(t *testing.T) {
 	})
 
 	t.Run("force overwrites existing files", func(t *testing.T) {
-		targetDir := filepath.Join(t.TempDir(), ".claude", "commands")
+		targetDir := filepath.Join(t.TempDir(), ".claude", "skills", "beans")
 		os.MkdirAll(targetDir, 0755)
 
 		// Write a custom bplan.md
@@ -82,38 +80,96 @@ func TestInstallSkills(t *testing.T) {
 	})
 }
 
-func TestClaudeCommandsDir(t *testing.T) {
-	t.Run("returns project .claude/commands for in-repo projects", func(t *testing.T) {
-		c := &config.Config{}
-		projectDir := "/some/project"
-		c.SetConfigDir(projectDir)
+func TestDetectTools(t *testing.T) {
+	t.Run("detects claude directory", func(t *testing.T) {
+		home := t.TempDir()
+		os.MkdirAll(filepath.Join(home, ".claude"), 0755)
 
-		got := claudeCommandsDir(c, projectDir)
-		want := filepath.Join(projectDir, ".claude", "commands")
-		if got != want {
-			t.Errorf("got %s, want %s", got, want)
+		tools := detectTools(home)
+		if len(tools) != 1 {
+			t.Fatalf("detected %d tools, want 1", len(tools))
+		}
+		if tools[0].Name != "Claude" {
+			t.Errorf("detected tool = %s, want Claude", tools[0].Name)
 		}
 	})
 
-	t.Run("returns home .claude/skills for local projects", func(t *testing.T) {
-		c := &config.Config{}
-		c.SetConfigDir("/home/user/.local/beans/projects/myproject")
-		c.SetProjectRoot("/some/project")
+	t.Run("detects both claude and codex", func(t *testing.T) {
+		home := t.TempDir()
+		os.MkdirAll(filepath.Join(home, ".claude"), 0755)
+		os.MkdirAll(filepath.Join(home, ".codex"), 0755)
 
-		got := claudeCommandsDir(c, "/some/project")
-		home, _ := os.UserHomeDir()
-		want := filepath.Join(home, ".claude", "skills")
-		if got != want {
-			t.Errorf("got %s, want %s", got, want)
+		tools := detectTools(home)
+		if len(tools) != 2 {
+			t.Fatalf("detected %d tools, want 2", len(tools))
 		}
 	})
 
-	t.Run("returns project .claude/commands for nil config", func(t *testing.T) {
-		projectDir := "/some/project"
-		got := claudeCommandsDir(nil, projectDir)
-		want := filepath.Join(projectDir, ".claude", "commands")
-		if got != want {
-			t.Errorf("got %s, want %s", got, want)
+	t.Run("returns empty when nothing detected", func(t *testing.T) {
+		home := t.TempDir()
+
+		tools := detectTools(home)
+		if len(tools) != 0 {
+			t.Errorf("detected %d tools, want 0", len(tools))
 		}
 	})
+}
+
+func TestSkillsDir(t *testing.T) {
+	home := "/home/user"
+	tool := agentTool{Name: "Claude", DirName: ".claude"}
+
+	got := skillsDir(home, tool)
+	want := filepath.Join(home, ".claude", "skills", "beans")
+	if got != want {
+		t.Errorf("skillsDir() = %s, want %s", got, want)
+	}
+}
+
+func TestInstallSkillsForTools(t *testing.T) {
+	t.Run("installs to both tools", func(t *testing.T) {
+		home := t.TempDir()
+		os.MkdirAll(filepath.Join(home, ".claude"), 0755)
+		os.MkdirAll(filepath.Join(home, ".codex"), 0755)
+
+		tools := []agentTool{
+			{Name: "Claude", DirName: ".claude"},
+			{Name: "Codex", DirName: ".codex"},
+		}
+
+		err := installSkillsForTools(home, tools, false)
+		if err != nil {
+			t.Fatalf("installSkillsForTools() error = %v", err)
+		}
+
+		// Verify skills exist in both directories
+		for _, tool := range tools {
+			dir := skillsDir(home, tool)
+			for _, name := range []string{"bplan.md", "breview.md", "bship.md", "binvestigate.md"} {
+				path := filepath.Join(dir, name)
+				if _, err := os.Stat(path); err != nil {
+					t.Errorf("expected skill file %s to exist for %s", name, tool.Name)
+				}
+			}
+		}
+	})
+}
+
+func TestJoinNames(t *testing.T) {
+	tests := []struct {
+		names []string
+		want  string
+	}{
+		{nil, ""},
+		{[]string{"Claude"}, "Claude"},
+		{[]string{"Claude", "Codex"}, "Claude and Codex"},
+		{[]string{"A", "B", "C"}, "A, B, and C"},
+	}
+
+	for _, tt := range tests {
+		got := joinNames(tt.names)
+		if got != tt.want {
+			t.Errorf("joinNames(%v) = %q, want %q", tt.names, got, tt.want)
+		}
+	}
 }
