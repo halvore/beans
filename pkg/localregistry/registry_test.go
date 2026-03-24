@@ -348,6 +348,62 @@ func TestLookupByRemoteURL(t *testing.T) {
 	}
 }
 
+func TestLookupByRemoteURLCrossProtocol(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv(EnvLocalDir, tmp)
+
+	reg, _ := Load()
+
+	projectPath := filepath.Join(tmp, "myproject")
+	os.MkdirAll(projectPath, 0o755)
+
+	// Register with SSH URL.
+	reg.Register(projectPath, "myproject", "git@github.com:fiken/fiken-web.git")
+
+	// Lookup with HTTPS should find the same project.
+	found := reg.LookupByRemoteURL("https://github.com/fiken/fiken-web.git")
+	if found == nil {
+		t.Fatal("LookupByRemoteURL() returned nil for HTTPS variant of registered SSH URL")
+	}
+	if found.Path != projectPath {
+		t.Errorf("path = %q, want %q", found.Path, projectPath)
+	}
+
+	// Lookup with SSH (same as registered) should also work.
+	found = reg.LookupByRemoteURL("git@github.com:fiken/fiken-web.git")
+	if found == nil {
+		t.Fatal("LookupByRemoteURL() returned nil for exact SSH match")
+	}
+
+	// Lookup with HTTPS without .git suffix should also work.
+	found = reg.LookupByRemoteURL("https://github.com/fiken/fiken-web")
+	if found == nil {
+		t.Fatal("LookupByRemoteURL() returned nil for HTTPS without .git suffix")
+	}
+}
+
+func TestNormalizeRemoteURL(t *testing.T) {
+	tests := []struct {
+		a, b string
+		same bool
+	}{
+		{"git@github.com:owner/repo.git", "https://github.com/owner/repo.git", true},
+		{"git@github.com:owner/repo", "https://github.com/owner/repo.git", true},
+		{"https://github.com/owner/repo", "git@github.com:owner/repo.git", true},
+		{"git@github.com:owner/repo.git", "git@gitlab.com:owner/repo.git", false},
+		{"https://github.com/owner/repo.git", "https://github.com/other/repo.git", false},
+	}
+
+	for _, tt := range tests {
+		na := normalizeRemoteURL(tt.a)
+		nb := normalizeRemoteURL(tt.b)
+		if (na == nb) != tt.same {
+			t.Errorf("normalizeRemoteURL(%q)=%q vs normalizeRemoteURL(%q)=%q: expected same=%v",
+				tt.a, na, tt.b, nb, tt.same)
+		}
+	}
+}
+
 func TestLookupByRemoteURLSkipsEmptyEntries(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv(EnvLocalDir, tmp)
