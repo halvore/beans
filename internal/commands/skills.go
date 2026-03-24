@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hmans/beans/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -55,14 +56,16 @@ func installDefaultSkills(beansPath string, force bool) (int, error) {
 	return installed, nil
 }
 
-// installClaudeCodeCommands creates stub command files in the project's
-// .claude/commands/ directory so that Claude Code's slash command system
-// discovers beans skills. Each stub reads the full skill file from the
-// actual skills directory (which may be outside the project for local storage).
-func installClaudeCodeCommands(projectDir, skillsDir string, force bool) (int, error) {
-	commandsDir := filepath.Join(projectDir, ".claude", "commands")
-	if err := os.MkdirAll(commandsDir, 0755); err != nil {
-		return 0, fmt.Errorf("failed to create .claude/commands directory: %w", err)
+// installClaudeCodeCommands creates stub command files in the given target
+// directory so that Claude Code's slash command system discovers beans skills.
+// Each stub reads the full skill file from the actual skills directory (which
+// may be outside the project for local storage).
+//
+// For in-repo projects, targetDir is typically <projectDir>/.claude/commands/.
+// For local projects, targetDir is typically $HOME/.claude/skills/.
+func installClaudeCodeCommands(targetDir, skillsDir string, force bool) (int, error) {
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return 0, fmt.Errorf("failed to create commands directory %s: %w", targetDir, err)
 	}
 
 	entries, err := os.ReadDir(skillsDir)
@@ -76,7 +79,7 @@ func installClaudeCodeCommands(projectDir, skillsDir string, force bool) (int, e
 			continue
 		}
 
-		destPath := filepath.Join(commandsDir, entry.Name())
+		destPath := filepath.Join(targetDir, entry.Name())
 
 		if !force {
 			if _, err := os.Stat(destPath); err == nil {
@@ -94,6 +97,21 @@ func installClaudeCodeCommands(projectDir, skillsDir string, force bool) (int, e
 	}
 
 	return installed, nil
+}
+
+// claudeCommandsDir returns the directory where Claude Code command stubs
+// should be installed. For local projects (where ConfigDir differs from
+// ProjectRoot), stubs go to $HOME/.claude/skills/ to avoid modifying
+// the project directory. For in-repo projects, they go to
+// <projectDir>/.claude/commands/.
+func claudeCommandsDir(c *config.Config, projectDir string) string {
+	if c != nil && c.ConfigDir() != "" && c.ProjectRoot() != "" && c.ConfigDir() != c.ProjectRoot() {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(home, ".claude", "skills")
+		}
+	}
+	return filepath.Join(projectDir, ".claude", "commands")
 }
 
 var skillsInitForce bool
@@ -133,12 +151,13 @@ Existing skill files are preserved unless --force is used.`,
 			projectDir = cwd
 		}
 		skillsDir := filepath.Join(bp, "skills")
-		ccInstalled, err := installClaudeCodeCommands(projectDir, skillsDir, skillsInitForce)
+		targetDir := claudeCommandsDir(cfg, projectDir)
+		ccInstalled, err := installClaudeCodeCommands(targetDir, skillsDir, skillsInitForce)
 		if err != nil {
 			return err
 		}
 		if ccInstalled > 0 {
-			fmt.Printf("Installed %d Claude Code command(s) to %s\n", ccInstalled, filepath.Join(projectDir, ".claude", "commands"))
+			fmt.Printf("Installed %d Claude Code command(s) to %s\n", ccInstalled, targetDir)
 		}
 
 		return nil
