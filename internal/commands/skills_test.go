@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hmans/beans/pkg/config"
 )
 
 func TestInstallDefaultSkills(t *testing.T) {
@@ -79,14 +81,14 @@ func TestInstallDefaultSkills(t *testing.T) {
 
 func TestInstallClaudeCodeCommands(t *testing.T) {
 	t.Run("creates command stubs pointing to skill files", func(t *testing.T) {
-		projectDir := t.TempDir()
+		targetDir := filepath.Join(t.TempDir(), ".claude", "commands")
 		skillsDir := filepath.Join(t.TempDir(), "skills")
 		os.MkdirAll(skillsDir, 0755)
 
 		os.WriteFile(filepath.Join(skillsDir, "bplan.md"), []byte("# /bplan — Critical Bean Planning"), 0644)
 		os.WriteFile(filepath.Join(skillsDir, "breview.md"), []byte("# /breview — Pre-PR Code Review"), 0644)
 
-		installed, err := installClaudeCodeCommands(projectDir, skillsDir, false)
+		installed, err := installClaudeCodeCommands(targetDir, skillsDir, false)
 		if err != nil {
 			t.Fatalf("installClaudeCodeCommands() error = %v", err)
 		}
@@ -96,7 +98,7 @@ func TestInstallClaudeCodeCommands(t *testing.T) {
 
 		// Verify stubs exist and reference the correct skill path.
 		for _, name := range []string{"bplan.md", "breview.md"} {
-			stubPath := filepath.Join(projectDir, ".claude", "commands", name)
+			stubPath := filepath.Join(targetDir, name)
 			data, err := os.ReadFile(stubPath)
 			if err != nil {
 				t.Errorf("expected stub %s to exist: %v", name, err)
@@ -110,8 +112,7 @@ func TestInstallClaudeCodeCommands(t *testing.T) {
 	})
 
 	t.Run("does not overwrite existing stubs", func(t *testing.T) {
-		projectDir := t.TempDir()
-		commandsDir := filepath.Join(projectDir, ".claude", "commands")
+		commandsDir := filepath.Join(t.TempDir(), ".claude", "commands")
 		os.MkdirAll(commandsDir, 0755)
 
 		custom := []byte("Custom command content")
@@ -121,7 +122,7 @@ func TestInstallClaudeCodeCommands(t *testing.T) {
 		os.MkdirAll(skillsDir, 0755)
 		os.WriteFile(filepath.Join(skillsDir, "bplan.md"), []byte("# skill"), 0644)
 
-		installed, err := installClaudeCodeCommands(projectDir, skillsDir, false)
+		installed, err := installClaudeCodeCommands(commandsDir, skillsDir, false)
 		if err != nil {
 			t.Fatalf("error = %v", err)
 		}
@@ -136,8 +137,7 @@ func TestInstallClaudeCodeCommands(t *testing.T) {
 	})
 
 	t.Run("force overwrites existing stubs", func(t *testing.T) {
-		projectDir := t.TempDir()
-		commandsDir := filepath.Join(projectDir, ".claude", "commands")
+		commandsDir := filepath.Join(t.TempDir(), ".claude", "commands")
 		os.MkdirAll(commandsDir, 0755)
 		os.WriteFile(filepath.Join(commandsDir, "bplan.md"), []byte("old"), 0644)
 
@@ -145,7 +145,7 @@ func TestInstallClaudeCodeCommands(t *testing.T) {
 		os.MkdirAll(skillsDir, 0755)
 		os.WriteFile(filepath.Join(skillsDir, "bplan.md"), []byte("# skill"), 0644)
 
-		installed, err := installClaudeCodeCommands(projectDir, skillsDir, true)
+		installed, err := installClaudeCodeCommands(commandsDir, skillsDir, true)
 		if err != nil {
 			t.Fatalf("error = %v", err)
 		}
@@ -160,13 +160,49 @@ func TestInstallClaudeCodeCommands(t *testing.T) {
 	})
 
 	t.Run("returns zero for missing skills directory", func(t *testing.T) {
-		projectDir := t.TempDir()
-		installed, err := installClaudeCodeCommands(projectDir, "/nonexistent/skills", false)
+		targetDir := filepath.Join(t.TempDir(), "commands")
+		installed, err := installClaudeCodeCommands(targetDir, "/nonexistent/skills", false)
 		if err != nil {
 			t.Fatalf("error = %v", err)
 		}
 		if installed != 0 {
 			t.Errorf("installed = %d, want 0", installed)
+		}
+	})
+}
+
+func TestClaudeCommandsDir(t *testing.T) {
+	t.Run("returns project .claude/commands for in-repo projects", func(t *testing.T) {
+		c := &config.Config{}
+		projectDir := "/some/project"
+		c.SetConfigDir(projectDir)
+
+		got := claudeCommandsDir(c, projectDir)
+		want := filepath.Join(projectDir, ".claude", "commands")
+		if got != want {
+			t.Errorf("got %s, want %s", got, want)
+		}
+	})
+
+	t.Run("returns home .claude/skills for local projects", func(t *testing.T) {
+		c := &config.Config{}
+		c.SetConfigDir("/home/user/.local/beans/projects/myproject")
+		c.SetProjectRoot("/some/project")
+
+		got := claudeCommandsDir(c, "/some/project")
+		home, _ := os.UserHomeDir()
+		want := filepath.Join(home, ".claude", "skills")
+		if got != want {
+			t.Errorf("got %s, want %s", got, want)
+		}
+	})
+
+	t.Run("returns project .claude/commands for nil config", func(t *testing.T) {
+		projectDir := "/some/project"
+		got := claudeCommandsDir(nil, projectDir)
+		want := filepath.Join(projectDir, ".claude", "commands")
+		if got != want {
+			t.Errorf("got %s, want %s", got, want)
 		}
 	})
 }

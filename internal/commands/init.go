@@ -90,7 +90,8 @@ at ~/.local/beans. The project directory will not be modified.`,
 
 		// Install Claude Code command stubs for skill discoverability.
 		if cwd, err := os.Getwd(); err == nil {
-			installClaudeCodeCommands(cwd, filepath.Join(beansDir, "skills"), false)
+			commandsDir := filepath.Join(cwd, ".claude", "commands")
+			installClaudeCodeCommands(commandsDir, filepath.Join(beansDir, "skills"), false)
 		}
 
 		if initJSON {
@@ -161,8 +162,14 @@ func initLocalProject() error {
 	// Install default agent skills.
 	installDefaultSkills(beansDir, false)
 
-	// Install Claude Code command stubs in the project directory for skill discoverability.
-	installClaudeCodeCommands(dir, filepath.Join(beansDir, "skills"), false)
+	// Install Claude Code command stubs. For local projects, use $HOME/.claude/skills/
+	// so we don't modify the project directory.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to resolve home directory: %w", err)
+	}
+	localCommandsDir := filepath.Join(home, ".claude", "skills")
+	installClaudeCodeCommands(localCommandsDir, filepath.Join(beansDir, "skills"), false)
 
 	// Save config alongside the local beans dir.
 	projectDir, err := reg.ProjectDir(entry.Slug)
