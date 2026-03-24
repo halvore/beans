@@ -45,11 +45,10 @@ type promptData struct {
 	SkillsDir     string // Absolute path to the skills directory
 }
 
-// discoverSkills reads .md files from the skills directory under beansPath
-// and extracts the skill name (from filename) and description (from the
-// first heading or first non-empty line).
-func discoverSkills(beansPath string) []skillInfo {
-	skillsDir := filepath.Join(beansPath, "skills")
+// discoverSkills reads .md files from the given directory and extracts the
+// skill name (from filename) and description (from the first heading or
+// first non-empty line).
+func discoverSkills(skillsDir string) []skillInfo {
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
 		return nil
@@ -148,16 +147,22 @@ var primeCmd = &cobra.Command{
 			return err
 		}
 
-		beansPath := primeCfg.ResolveBeansPath()
-
-		skillsDir := filepath.Join(beansPath, "skills")
+		cwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		projectDir := cwd
+		if primeCfg.ProjectRoot() != "" {
+			projectDir = primeCfg.ProjectRoot()
+		}
+		skillsDir := claudeCommandsDir(primeCfg, projectDir)
 
 		data := promptData{
 			GraphQLSchema: GetGraphQLSchema(),
 			Types:         config.DefaultTypes,
 			Statuses:      config.DefaultStatuses,
 			Priorities:    config.DefaultPriorities,
-			Skills:        discoverSkills(beansPath),
+			Skills:        discoverSkills(skillsDir),
 			SkillsDir:     skillsDir,
 		}
 

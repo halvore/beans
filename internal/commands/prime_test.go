@@ -45,13 +45,23 @@ func TestPrimeWithLocalStorage(t *testing.T) {
 		t.Fatalf("failed to create .beans dir: %v", err)
 	}
 
-	// Install a skill so we can verify the path in the output.
-	skillsDir := filepath.Join(beansDir, "skills")
-	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+	// Install a skill to $HOME/.claude/skills/ (where local project skills go)
+	// so we can verify the path in the output.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	localSkillsDir := filepath.Join(home, ".claude", "skills")
+	if err := os.MkdirAll(localSkillsDir, 0755); err != nil {
 		t.Fatalf("failed to create skills dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(skillsDir, "bplan.md"), []byte("# /bplan — Critical Bean Planning\n\nDetails."), 0644); err != nil {
-		t.Fatalf("failed to write skill file: %v", err)
+	skillFile := filepath.Join(localSkillsDir, "bplan.md")
+	// Only write if not already present (avoid clobbering real skills)
+	if _, statErr := os.Stat(skillFile); statErr != nil {
+		if err := os.WriteFile(skillFile, []byte("# /bplan — Critical Bean Planning\n\nDetails."), 0644); err != nil {
+			t.Fatalf("failed to write skill file: %v", err)
+		}
+		t.Cleanup(func() { os.Remove(skillFile) })
 	}
 
 	// Save and restore working directory.
@@ -111,10 +121,9 @@ func TestPrimeWithLocalStorage(t *testing.T) {
 			t.Errorf("expected output to contain 'Beans Usage Guide', got:\n%s", output[:min(len(output), 200)])
 		}
 
-		// The skills section should reference the actual local skills path, not .beans/skills/.
-		expectedSkillsPath := filepath.Join(beansDir, "skills")
-		if !bytes.Contains([]byte(output), []byte(expectedSkillsPath)) {
-			t.Errorf("expected output to contain actual skills path %q, got:\n%s", expectedSkillsPath, output[:min(len(output), 500)])
+		// The skills section should reference the $HOME/.claude/skills/ path for local projects.
+		if !bytes.Contains([]byte(output), []byte(localSkillsDir)) {
+			t.Errorf("expected output to contain skills path %q, got:\n%s", localSkillsDir, output[:min(len(output), 500)])
 		}
 	})
 }
@@ -186,11 +195,7 @@ func TestPrimeWithInRepoConfig(t *testing.T) {
 
 func TestDiscoverSkills(t *testing.T) {
 	t.Run("discovers skill files", func(t *testing.T) {
-		beansDir := t.TempDir()
-		skillsDir := filepath.Join(beansDir, "skills")
-		if err := os.MkdirAll(skillsDir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		skillsDir := t.TempDir()
 
 		// Write test skill files
 		os.WriteFile(filepath.Join(skillsDir, "bplan.md"), []byte("# /bplan — Critical Bean Planning\n\nDetails here."), 0644)
@@ -198,7 +203,7 @@ func TestDiscoverSkills(t *testing.T) {
 		// Non-md files should be ignored
 		os.WriteFile(filepath.Join(skillsDir, "notes.txt"), []byte("not a skill"), 0644)
 
-		skills := discoverSkills(beansDir)
+		skills := discoverSkills(skillsDir)
 
 		if len(skills) != 2 {
 			t.Fatalf("expected 2 skills, got %d", len(skills))
@@ -227,11 +232,8 @@ func TestDiscoverSkills(t *testing.T) {
 	})
 
 	t.Run("returns nil for empty directory", func(t *testing.T) {
-		beansDir := t.TempDir()
-		if err := os.MkdirAll(filepath.Join(beansDir, "skills"), 0755); err != nil {
-			t.Fatal(err)
-		}
-		skills := discoverSkills(beansDir)
+		skillsDir := t.TempDir()
+		skills := discoverSkills(skillsDir)
 		if skills != nil {
 			t.Errorf("expected nil, got %v", skills)
 		}
