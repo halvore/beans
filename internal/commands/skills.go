@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -54,6 +55,47 @@ func installDefaultSkills(beansPath string, force bool) (int, error) {
 	return installed, nil
 }
 
+// installClaudeCodeCommands creates stub command files in the project's
+// .claude/commands/ directory so that Claude Code's slash command system
+// discovers beans skills. Each stub reads the full skill file from the
+// actual skills directory (which may be outside the project for local storage).
+func installClaudeCodeCommands(projectDir, skillsDir string, force bool) (int, error) {
+	commandsDir := filepath.Join(projectDir, ".claude", "commands")
+	if err := os.MkdirAll(commandsDir, 0755); err != nil {
+		return 0, fmt.Errorf("failed to create .claude/commands directory: %w", err)
+	}
+
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		return 0, nil // no skills dir, nothing to do
+	}
+
+	installed := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+
+		destPath := filepath.Join(commandsDir, entry.Name())
+
+		if !force {
+			if _, err := os.Stat(destPath); err == nil {
+				continue // skip existing
+			}
+		}
+
+		skillPath := filepath.Join(skillsDir, entry.Name())
+		stub := fmt.Sprintf("Read and follow the full skill instructions in `%s`.\n", skillPath)
+
+		if err := os.WriteFile(destPath, []byte(stub), 0644); err != nil {
+			return installed, fmt.Errorf("failed to write command stub %s: %w", entry.Name(), err)
+		}
+		installed++
+	}
+
+	return installed, nil
+}
+
 var skillsInitForce bool
 
 var skillsCmd = &cobra.Command{
@@ -80,6 +122,25 @@ Existing skill files are preserved unless --force is used.`,
 		} else {
 			fmt.Printf("Installed %d default skill(s) to %s\n", installed, filepath.Join(bp, "skills"))
 		}
+
+		// Install Claude Code command stubs so skills are discoverable via slash commands.
+		projectDir := cfg.ProjectRoot()
+		if projectDir == "" {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return nil // best-effort
+			}
+			projectDir = cwd
+		}
+		skillsDir := filepath.Join(bp, "skills")
+		ccInstalled, err := installClaudeCodeCommands(projectDir, skillsDir, skillsInitForce)
+		if err != nil {
+			return err
+		}
+		if ccInstalled > 0 {
+			fmt.Printf("Installed %d Claude Code command(s) to %s\n", ccInstalled, filepath.Join(projectDir, ".claude", "commands"))
+		}
+
 		return nil
 	},
 }
