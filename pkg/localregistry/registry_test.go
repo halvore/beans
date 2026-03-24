@@ -316,6 +316,55 @@ func TestRegisterRemoteURLCollision(t *testing.T) {
 	}
 }
 
+func TestLookupByRemoteURL(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv(EnvLocalDir, tmp)
+
+	reg, _ := Load()
+
+	projectPath := filepath.Join(tmp, "myproject")
+	os.MkdirAll(projectPath, 0o755)
+
+	remoteURL := "https://github.com/halvore/beans.git"
+	reg.Register(projectPath, "myproject", remoteURL)
+
+	// Lookup by remote URL should find the project.
+	found := reg.LookupByRemoteURL(remoteURL)
+	if found == nil {
+		t.Fatal("LookupByRemoteURL() returned nil for registered remote URL")
+	}
+	if found.Path != projectPath {
+		t.Errorf("path = %q, want %q", found.Path, projectPath)
+	}
+
+	// Lookup with different URL should return nil.
+	if reg.LookupByRemoteURL("https://github.com/other/repo.git") != nil {
+		t.Error("expected nil for unknown remote URL")
+	}
+
+	// Lookup with empty URL should return nil.
+	if reg.LookupByRemoteURL("") != nil {
+		t.Error("expected nil for empty remote URL")
+	}
+}
+
+func TestLookupByRemoteURLSkipsEmptyEntries(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv(EnvLocalDir, tmp)
+
+	reg, _ := Load()
+
+	// Register a project without a remote URL.
+	projectPath := filepath.Join(tmp, "noremote")
+	os.MkdirAll(projectPath, 0o755)
+	reg.Register(projectPath, "noremote", "")
+
+	// Should not match even if we search for an empty string.
+	if reg.LookupByRemoteURL("") != nil {
+		t.Error("expected nil when searching with empty remote URL")
+	}
+}
+
 func TestRegisterFallsBackWithoutRemoteURL(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv(EnvLocalDir, tmp)
