@@ -421,6 +421,49 @@ func TestLookupByRemoteURLSkipsEmptyEntries(t *testing.T) {
 	}
 }
 
+func TestRegisterReusesSlugForSameRemoteCrossProtocol(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv(EnvLocalDir, tmp)
+
+	reg, _ := Load()
+
+	path1 := filepath.Join(tmp, "a", "repo")
+	path2 := filepath.Join(tmp, "b", "repo")
+	os.MkdirAll(path1, 0o755)
+	os.MkdirAll(path2, 0o755)
+
+	// Register with SSH URL.
+	e1, err := reg.Register(path1, "", "git@github.com:fiken/fiken-web.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Register from different path with HTTPS URL for the same repo.
+	e2, err := reg.Register(path2, "", "https://github.com/fiken/fiken-web.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both should have the same slug (no hash suffix).
+	if e1.Slug != e2.Slug {
+		t.Errorf("slugs differ: %q vs %q — expected same slug for same remote", e1.Slug, e2.Slug)
+	}
+	if e2.Slug != "fiken-fiken-web" {
+		t.Errorf("slug = %q, want %q", e2.Slug, "fiken-fiken-web")
+	}
+
+	// Both entries should exist with their respective paths.
+	if len(reg.Projects) != 2 {
+		t.Errorf("expected 2 entries, got %d", len(reg.Projects))
+	}
+	if reg.Lookup(path1) == nil {
+		t.Error("Lookup(path1) returned nil")
+	}
+	if reg.Lookup(path2) == nil {
+		t.Error("Lookup(path2) returned nil")
+	}
+}
+
 func TestRegisterFallsBackWithoutRemoteURL(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv(EnvLocalDir, tmp)

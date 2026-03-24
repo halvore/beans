@@ -115,9 +115,22 @@ func (r *Registry) Register(projectPath, projectName, remoteURL string) (*Projec
 		return nil, fmt.Errorf("resolving project path: %w", err)
 	}
 
-	// Check if already registered.
+	// Check if already registered by path.
 	if entry := r.Lookup(absPath); entry != nil {
 		return entry, nil
+	}
+
+	// Check if another entry exists for the same remote (SSH/HTTPS variants).
+	// If so, add this path as an alias pointing to the same project.
+	if entry := r.LookupByRemoteURL(remoteURL); entry != nil {
+		alias := ProjectEntry{
+			Path:         absPath,
+			Slug:         entry.Slug,
+			RemoteURL:    remoteURL,
+			RegisteredAt: time.Now().UTC().Truncate(time.Second),
+		}
+		r.Projects = append(r.Projects, alias)
+		return &alias, nil
 	}
 
 	slug := makeSlug(projectName, absPath, remoteURL, r)
