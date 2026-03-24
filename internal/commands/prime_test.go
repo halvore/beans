@@ -22,7 +22,7 @@ func TestPrimeWithLocalStorage(t *testing.T) {
 
 	// Register the project in the local registry.
 	reg := &localregistry.Registry{}
-	entry, err := reg.Register(projectDir, "test-project")
+	entry, err := reg.Register(projectDir, "test-project", "")
 	if err != nil {
 		t.Fatalf("failed to register project: %v", err)
 	}

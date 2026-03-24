@@ -28,7 +28,7 @@ func setupProjectsTest(t *testing.T) (*localregistry.Registry, string, string) {
 		t.Fatal(err)
 	}
 
-	entry, err := reg.Register(projectDir, filepath.Base(projectDir))
+	entry, err := reg.Register(projectDir, filepath.Base(projectDir), "")
 	if err != nil {
 		t.Fatal(err)
 	}

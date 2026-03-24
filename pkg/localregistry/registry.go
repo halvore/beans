@@ -3,8 +3,10 @@ package localregistry
 import (
 	"crypto/sha256"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -35,6 +37,9 @@ type ProjectEntry struct {
 	Path string `yaml:"path"`
 	// Slug is the directory name under projects/.
 	Slug string `yaml:"slug"`
+	// RemoteURL is the git remote URL (typically origin) used to identify the project.
+	// May be empty for projects without a git remote.
+	RemoteURL string `yaml:"remote_url,omitempty"`
 	// RegisteredAt is the timestamp when the project was registered.
 	RegisteredAt time.Time `yaml:"registered_at"`
 }
@@ -102,9 +107,9 @@ func (r *Registry) Save() error {
 
 // Register adds a project to the registry and creates its local beans
 // directory. If the project path is already registered, the existing entry
-// is returned unchanged. The projectName is used to derive the slug; if
-// empty, the basename of projectPath is used.
-func (r *Registry) Register(projectPath, projectName string) (*ProjectEntry, error) {
+// is returned unchanged. The remoteURL is the git remote URL used to derive
+// the slug; if empty, projectName or the basename of projectPath is used.
+func (r *Registry) Register(projectPath, projectName, remoteURL string) (*ProjectEntry, error) {
 	absPath, err := filepath.Abs(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("resolving project path: %w", err)
@@ -115,11 +120,12 @@ func (r *Registry) Register(projectPath, projectName string) (*ProjectEntry, err
 		return entry, nil
 	}
 
-	slug := makeSlug(projectName, absPath, r)
+	slug := makeSlug(projectName, absPath, remoteURL, r)
 
 	entry := ProjectEntry{
 		Path:         absPath,
 		Slug:         slug,
+		RemoteURL:    remoteURL,
 		RegisteredAt: time.Now().UTC().Truncate(time.Second),
 	}
 	r.Projects = append(r.Projects, entry)
@@ -187,16 +193,25 @@ func (r *Registry) ensureProjectDir(slug string) error {
 	return os.MkdirAll(beansDir, 0o755)
 }
 
-// makeSlug generates a unique slug for the project. Uses projectName if
-// provided, otherwise the basename of projectPath. Appends a short hash
-// suffix on collision.
-func makeSlug(projectName, projectPath string, r *Registry) string {
-	name := projectName
-	if name == "" {
-		name = filepath.Base(projectPath)
+// makeSlug generates a unique slug for the project. If remoteURL is provided,
+// derives the slug from the URL path (owner-repo). Otherwise falls back to
+// projectName or the basename of projectPath. Appends a short hash suffix on
+// collision.
+func makeSlug(projectName, projectPath, remoteURL string, r *Registry) string {
+	var base string
+
+	if remoteURL != "" {
+		base = slugFromRemoteURL(remoteURL)
 	}
 
-	base := bean.Slugify(name)
+	if base == "" {
+		name := projectName
+		if name == "" {
+			name = filepath.Base(projectPath)
+		}
+		base = bean.Slugify(name)
+	}
+
 	if base == "" {
 		base = "project"
 	}
@@ -210,6 +225,42 @@ func makeSlug(projectName, projectPath string, r *Registry) string {
 	hash := sha256.Sum256([]byte(projectPath))
 	suffix := fmt.Sprintf("%x", hash[:2]) // 4 hex chars
 	return base + "-" + suffix
+}
+
+// sshRemoteRe matches SSH-style git remotes like git@github.com:owner/repo.git
+var sshRemoteRe = regexp.MustCompile(`^[^@]+@([^:]+):(.+)$`)
+
+// slugFromRemoteURL extracts an owner-repo slug from a git remote URL.
+// Handles both HTTPS (https://github.com/owner/repo.git) and SSH
+// (git@github.com:owner/repo.git) formats. Returns "" if parsing fails.
+func slugFromRemoteURL(remoteURL string) string {
+	var pathPart string
+
+	if m := sshRemoteRe.FindStringSubmatch(remoteURL); m != nil {
+		// SSH format: git@github.com:owner/repo.git
+		pathPart = m[2]
+	} else if u, err := url.Parse(remoteURL); err == nil && u.Host != "" {
+		// HTTPS format: https://github.com/owner/repo.git
+		pathPart = strings.TrimPrefix(u.Path, "/")
+	}
+
+	if pathPart == "" {
+		return ""
+	}
+
+	// Strip .git suffix.
+	pathPart = strings.TrimSuffix(pathPart, ".git")
+
+	// Use the last two path segments (owner/repo) for the slug.
+	parts := strings.Split(pathPart, "/")
+	if len(parts) >= 2 {
+		owner := parts[len(parts)-2]
+		repo := parts[len(parts)-1]
+		return bean.Slugify(owner + "-" + repo)
+	}
+
+	// Single segment (unlikely but handle gracefully).
+	return bean.Slugify(parts[len(parts)-1])
 }
 
 func slugExists(r *Registry, slug string) bool {

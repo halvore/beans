@@ -72,6 +72,17 @@ func CurrentBranch(dir string) (string, bool) {
 	return branch, true
 }
 
+// RemoteURL returns the URL of the given remote (e.g. "origin") for the
+// repo at dir. Returns ("", false) if not a git repo or the remote doesn't exist.
+func RemoteURL(dir, remote string) (string, bool) {
+	cmd := exec.Command("git", "-C", dir, "remote", "get-url", remote)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(out)), true
+}
+
 func gitRevParse(dir, flag string) (string, error) {
 	cmd := exec.Command("git", "-C", dir, "rev-parse", flag)
 	out, err := cmd.Output()

@@ -176,7 +176,7 @@ func TestLoadFromLocalRegistry(t *testing.T) {
 
 		// Register the project
 		reg := &localregistry.Registry{}
-		entry, err := reg.Register(projectDir, "test-project")
+		entry, err := reg.Register(projectDir, "test-project", "")
 		if err != nil {
 			t.Fatalf("failed to register project: %v", err)
 		}
@@ -222,7 +222,7 @@ func TestLoadFromLocalRegistry(t *testing.T) {
 
 		// Register the project
 		reg := &localregistry.Registry{}
-		entry, err := reg.Register(projectDir, "test-project")
+		entry, err := reg.Register(projectDir, "test-project", "")
 		if err != nil {
 			t.Fatalf("failed to register project: %v", err)
 		}
@@ -282,7 +282,7 @@ func TestLoadFromLocalRegistry(t *testing.T) {
 
 		// Register the project in local registry
 		reg := &localregistry.Registry{}
-		entry, err := reg.Register(projectDir, "test-project")
+		entry, err := reg.Register(projectDir, "test-project", "")
 		if err != nil {
 			t.Fatalf("failed to register project: %v", err)
 		}
@@ -332,7 +332,7 @@ func TestLoadFromLocalRegistry(t *testing.T) {
 
 		// Register the project
 		reg := &localregistry.Registry{}
-		entry, err := reg.Register(projectDir, "test-project")
+		entry, err := reg.Register(projectDir, "test-project", "")
 		if err != nil {
 			t.Fatalf("failed to register project: %v", err)
 		}
