@@ -324,6 +324,96 @@ func TestLoadFromLocalRegistry(t *testing.T) {
 		}
 	})
 
+	t.Run("resolves from git worktree via remote URL when path differs", func(t *testing.T) {
+		localDir := t.TempDir()
+		t.Setenv(localregistry.EnvLocalDir, localDir)
+
+		// Create a bare repo to serve as "origin" (so both repos share a remote URL).
+		bareDir, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatalf("EvalSymlinks: %v", err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = bareDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init --bare failed: %s: %v", out, err)
+		}
+
+		// Create the "original" project directory (what was registered with beans).
+		origProjectDir, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatalf("EvalSymlinks: %v", err)
+		}
+		for _, args := range [][]string{
+			{"git", "init", "-b", "main"},
+			{"git", "config", "user.email", "test@test.com"},
+			{"git", "config", "user.name", "Test"},
+			{"git", "remote", "add", "origin", bareDir},
+			{"git", "commit", "--allow-empty", "-m", "initial"},
+			{"git", "push", "-u", "origin", "main"},
+		} {
+			cmd := exec.Command(args[0], args[1:]...)
+			cmd.Dir = origProjectDir
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("%v failed: %s: %v", args, out, err)
+			}
+		}
+
+		// Register the original project path with its remote URL.
+		reg := &localregistry.Registry{}
+		entry, err := reg.Register(origProjectDir, "test-project", bareDir)
+		if err != nil {
+			t.Fatalf("failed to register project: %v", err)
+		}
+		if err := reg.Save(); err != nil {
+			t.Fatalf("failed to save registry: %v", err)
+		}
+
+		// Create config in local project dir.
+		localProjectDir, err := reg.ProjectDir(entry.Slug)
+		if err != nil {
+			t.Fatalf("failed to get project dir: %v", err)
+		}
+		cfgToSave := config.DefaultWithPrefix("test-project-")
+		cfgToSave.Project.Name = "test-project"
+		cfgToSave.SetConfigDir(localProjectDir)
+		if err := cfgToSave.Save(localProjectDir); err != nil {
+			t.Fatalf("failed to save config: %v", err)
+		}
+
+		// Clone the repo to a DIFFERENT path (simulating Conductor workspace).
+		cloneDir, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatalf("EvalSymlinks: %v", err)
+		}
+		clonePath := filepath.Join(cloneDir, "cloned-repo")
+		cmd = exec.Command("git", "clone", bareDir, clonePath)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git clone failed: %s: %v", out, err)
+		}
+
+		// Create a worktree from the clone (different path than original registration).
+		wtPath := filepath.Join(cloneDir, "worktree")
+		cmd = exec.Command("git", "worktree", "add", wtPath, "-b", "test-branch")
+		cmd.Dir = clonePath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git worktree add failed: %s: %v", out, err)
+		}
+
+		// loadFromLocalRegistry should resolve via remote URL fallback.
+		cfg, err := loadFromLocalRegistry(wtPath)
+		if err != nil {
+			t.Fatalf("loadFromLocalRegistry() error = %v", err)
+		}
+
+		if cfg.GetProjectName() != "test-project" {
+			t.Errorf("expected project name %q, got %q", "test-project", cfg.GetProjectName())
+		}
+		if cfg.ConfigDir() != localProjectDir {
+			t.Errorf("expected configDir=%q, got %q", localProjectDir, cfg.ConfigDir())
+		}
+	})
+
 	t.Run("resolves beans path from local registry config", func(t *testing.T) {
 		localDir := t.TempDir()
 		t.Setenv(localregistry.EnvLocalDir, localDir)

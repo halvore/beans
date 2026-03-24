@@ -165,6 +165,20 @@ func (r *Registry) Lookup(projectPath string) *ProjectEntry {
 	return nil
 }
 
+// LookupByRemoteURL finds a project entry by its git remote URL.
+// Returns nil if not found or if remoteURL is empty.
+func (r *Registry) LookupByRemoteURL(remoteURL string) *ProjectEntry {
+	if remoteURL == "" {
+		return nil
+	}
+	for i := range r.Projects {
+		if r.Projects[i].RemoteURL != "" && r.Projects[i].RemoteURL == remoteURL {
+			return &r.Projects[i]
+		}
+	}
+	return nil
+}
+
 // ProjectDir returns the absolute path to a project's local beans root
 // (the directory containing .beans.yml and .beans/).
 func (r *Registry) ProjectDir(slug string) (string, error) {

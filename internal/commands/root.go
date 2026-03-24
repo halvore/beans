@@ -139,6 +139,15 @@ func loadFromLocalRegistry(dir string) (*config.Config, error) {
 				mainRoot = resolved
 			}
 			entry = reg.Lookup(mainRoot)
+
+			// If path-based lookup still failed, try matching by git remote URL.
+			// This handles worktrees where the main repo is cloned at a different
+			// path than what's registered (e.g. Conductor workspaces).
+			if entry == nil {
+				if remoteURL, ok := gitutil.RemoteURL(dir, "origin"); ok {
+					entry = reg.LookupByRemoteURL(remoteURL)
+				}
+			}
 		}
 	}
 	if entry == nil {
