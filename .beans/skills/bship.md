@@ -23,6 +23,12 @@ You are preparing code for a pull request. Your job is to make sure everything i
    - A test plan section describing how to verify the changes
    - Link to relevant bean ID(s)
 
+## Superpowers Integration
+
+If the `superpowers:verification-before-completion` skill is available, invoke it via the Skill tool **before** opening the PR (between steps 3 and 4). It enforces running fresh verification commands and confirming output before claiming work is complete.
+
+If the `superpowers:finishing-a-development-branch` skill is available, invoke it via the Skill tool **after** all tests pass and changes are committed (step 6) to guide the PR creation and branch completion process. Layer the beans-specific rules below on top of its process (bean status updates, conventional commits with bean refs).
+
 ## Rules
 
 - Never ship with failing tests
