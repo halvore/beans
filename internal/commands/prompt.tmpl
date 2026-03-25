@@ -17,7 +17,7 @@ BEFORE starting any task:
 - FIRST: Check if there already is an existing bean about this work. If there isn't, create a bean with `beans create "Title" -t <type> -d "Description..." -s in-progress`
 - THEN: Do the work, and keep the bean's todo items current (check off what has been done, as it happens; `- [ ]` → `- [x]`)
 - FINALLY: ONLY if the bean has no unchecked todo items left, mark it completed with `beans update <bean-id> -s completed`.
-- WHEN COMMITTING: Include both code changes AND bean file(s) in the commit
+- WHEN COMMITTING: Include both code changes AND bean file(s) in the commit. Always reference the bean ID in the commit message (e.g., `Refs: bean-xxxx`).
 
 AFTER finishing any task:
 
