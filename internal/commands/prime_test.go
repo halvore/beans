@@ -194,22 +194,21 @@ func TestPrimeWithInRepoConfig(t *testing.T) {
 }
 
 func TestDiscoverSkills(t *testing.T) {
-	t.Run("discovers skill files", func(t *testing.T) {
-		skillsDir := t.TempDir()
+	t.Run("discovers flat skill files", func(t *testing.T) {
+		dir := t.TempDir()
 
-		// Write test skill files
-		os.WriteFile(filepath.Join(skillsDir, "bplan.md"), []byte("# /bplan — Critical Bean Planning\n\nDetails here."), 0644)
-		os.WriteFile(filepath.Join(skillsDir, "breview.md"), []byte("# /breview — Pre-PR Code Review\n\nDetails here."), 0644)
+		// Write test skill files in flat format
+		os.WriteFile(filepath.Join(dir, "bplan.md"), []byte("# /bplan — Critical Bean Planning\n\nDetails here."), 0644)
+		os.WriteFile(filepath.Join(dir, "breview.md"), []byte("# /breview — Pre-PR Code Review\n\nDetails here."), 0644)
 		// Non-md files should be ignored
-		os.WriteFile(filepath.Join(skillsDir, "notes.txt"), []byte("not a skill"), 0644)
+		os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("not a skill"), 0644)
 
-		skills := discoverSkills(skillsDir)
+		skills := discoverSkills(dir)
 
 		if len(skills) != 2 {
 			t.Fatalf("expected 2 skills, got %d", len(skills))
 		}
 
-		// Skills should be sorted alphabetically (readdir order)
 		if skills[0].Name != "bplan" {
 			t.Errorf("skills[0].Name = %q, want \"bplan\"", skills[0].Name)
 		}
@@ -219,8 +218,38 @@ func TestDiscoverSkills(t *testing.T) {
 		if skills[1].Name != "breview" {
 			t.Errorf("skills[1].Name = %q, want \"breview\"", skills[1].Name)
 		}
-		if skills[1].Description != "Pre-PR Code Review" {
-			t.Errorf("skills[1].Description = %q, want \"Pre-PR Code Review\"", skills[1].Description)
+	})
+
+	t.Run("discovers native format skills", func(t *testing.T) {
+		dir := t.TempDir()
+
+		// Create native format: beans-<name>/SKILL.md
+		os.MkdirAll(filepath.Join(dir, "beans-bplan"), 0755)
+		os.WriteFile(filepath.Join(dir, "beans-bplan", "SKILL.md"),
+			[]byte("---\nname: bplan\ndescription: Critical Bean Planning\n---\n\n# /bplan — Critical Bean Planning\n\nDetails."), 0644)
+
+		os.MkdirAll(filepath.Join(dir, "beans-breview"), 0755)
+		os.WriteFile(filepath.Join(dir, "beans-breview", "SKILL.md"),
+			[]byte("---\nname: breview\ndescription: Pre-PR Code Review\n---\n\n# /breview — Pre-PR Code Review\n\nDetails."), 0644)
+
+		// Non-beans directories should be ignored
+		os.MkdirAll(filepath.Join(dir, "other-skill"), 0755)
+		os.WriteFile(filepath.Join(dir, "other-skill", "SKILL.md"), []byte("# Other"), 0644)
+
+		skills := discoverSkills(dir)
+
+		if len(skills) != 2 {
+			t.Fatalf("expected 2 skills, got %d", len(skills))
+		}
+
+		if skills[0].Name != "bplan" {
+			t.Errorf("skills[0].Name = %q, want \"bplan\"", skills[0].Name)
+		}
+		if skills[0].Description != "Critical Bean Planning" {
+			t.Errorf("skills[0].Description = %q, want \"Critical Bean Planning\"", skills[0].Description)
+		}
+		if skills[1].Name != "breview" {
+			t.Errorf("skills[1].Name = %q, want \"breview\"", skills[1].Name)
 		}
 	})
 
@@ -232,8 +261,8 @@ func TestDiscoverSkills(t *testing.T) {
 	})
 
 	t.Run("returns nil for empty directory", func(t *testing.T) {
-		skillsDir := t.TempDir()
-		skills := discoverSkills(skillsDir)
+		dir := t.TempDir()
+		skills := discoverSkills(dir)
 		if skills != nil {
 			t.Errorf("expected nil, got %v", skills)
 		}
@@ -265,6 +294,16 @@ func TestExtractSkillDescription(t *testing.T) {
 			name:    "empty file",
 			content: "",
 			want:    "",
+		},
+		{
+			name:    "with YAML frontmatter and heading",
+			content: "---\nname: bplan\ndescription: From Frontmatter\n---\n\n# /bplan — Critical Bean Planning\n\nDetails.",
+			want:    "Critical Bean Planning",
+		},
+		{
+			name:    "with YAML frontmatter only",
+			content: "---\nname: bplan\ndescription: From Frontmatter\n---\n\nNo heading here.",
+			want:    "From Frontmatter",
 		},
 	}
 

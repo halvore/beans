@@ -45,9 +45,10 @@ type promptData struct {
 	SkillsDir     string // Absolute path to the skills directory
 }
 
-// discoverSkills reads .md files from the given directory and extracts the
-// skill name (from filename) and description (from the first heading or
-// first non-empty line).
+// discoverSkills reads skill files from the given directory. It supports two
+// layouts:
+//   - Native: beans-<name>/SKILL.md subdirectories (Claude Code format)
+//   - Flat: <name>.md files in the directory (legacy/Codex format)
 func discoverSkills(skillsDir string) []skillInfo {
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
@@ -56,17 +57,30 @@ func discoverSkills(skillsDir string) []skillInfo {
 
 	var skills []skillInfo
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+		// Native format: beans-<name>/SKILL.md
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), skillPrefix) {
+			skillFile := filepath.Join(skillsDir, entry.Name(), "SKILL.md")
+			if _, statErr := os.Stat(skillFile); statErr != nil {
+				continue
+			}
+			name := strings.TrimPrefix(entry.Name(), skillPrefix)
+			desc := extractSkillDescription(skillFile)
+			skills = append(skills, skillInfo{
+				Name:        name,
+				Description: desc,
+			})
 			continue
 		}
 
-		name := strings.TrimSuffix(entry.Name(), ".md")
-		desc := extractSkillDescription(filepath.Join(skillsDir, entry.Name()))
-
-		skills = append(skills, skillInfo{
-			Name:        name,
-			Description: desc,
-		})
+		// Flat format: <name>.md
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
+			name := strings.TrimSuffix(entry.Name(), ".md")
+			desc := extractSkillDescription(filepath.Join(skillsDir, entry.Name()))
+			skills = append(skills, skillInfo{
+				Name:        name,
+				Description: desc,
+			})
+		}
 	}
 	return skills
 }
@@ -74,17 +88,40 @@ func discoverSkills(skillsDir string) []skillInfo {
 // extractSkillDescription reads the first heading from a skill file.
 // It looks for a line starting with "# " and extracts the text after
 // the " — " separator. Falls back to the full heading text, then to
-// the filename.
+// the filename. Handles YAML frontmatter (---) by skipping it, and
+// also checks for a "description:" field in frontmatter.
 func extractSkillDescription(path string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return ""
 	}
 
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "# ") {
-			heading := strings.TrimPrefix(line, "# ")
+	lines := strings.Split(string(data), "\n")
+	inFrontmatter := false
+	frontmatterDesc := ""
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Handle YAML frontmatter
+		if i == 0 && trimmed == "---" {
+			inFrontmatter = true
+			continue
+		}
+		if inFrontmatter {
+			if trimmed == "---" {
+				inFrontmatter = false
+				continue
+			}
+			// Extract description from frontmatter as fallback
+			if strings.HasPrefix(trimmed, "description:") {
+				frontmatterDesc = strings.TrimSpace(strings.TrimPrefix(trimmed, "description:"))
+			}
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, "# ") {
+			heading := strings.TrimPrefix(trimmed, "# ")
 			// Look for " — " separator (e.g. "# /plan — Critical Bean Planning")
 			if idx := strings.Index(heading, " — "); idx >= 0 {
 				return strings.TrimSpace(heading[idx+len(" — "):])
@@ -92,7 +129,8 @@ func extractSkillDescription(path string) string {
 			return heading
 		}
 	}
-	return ""
+
+	return frontmatterDesc
 }
 
 var primeCmd = &cobra.Command{
@@ -147,12 +185,14 @@ var primeCmd = &cobra.Command{
 			return err
 		}
 
-		// Discover skills from $HOME/.claude/skills/beans (where skills init installs them).
+		// Discover skills from $HOME/.claude/skills/ (where skills init installs them).
+		// Native format uses beans-<name>/SKILL.md subdirectories directly under skills/.
+		// Also checks the legacy flat format at $HOME/.claude/skills/beans/.
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return err
 		}
-		beansSkillsDir := filepath.Join(home, ".claude", "skills", "beans")
+		beansSkillsDir := filepath.Join(home, ".claude", "skills")
 
 		data := promptData{
 			GraphQLSchema: GetGraphQLSchema(),
