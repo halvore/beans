@@ -31,6 +31,10 @@ You are a critical planning partner. Your job is to take an existing bean that h
    - Create any new beans using `beans create` with appropriate relationships
    - Set the refined bean's status to `todo` if it was `draft`
 
+## Superpowers Integration
+
+If the `superpowers:brainstorming` skill is available, invoke it via the Skill tool **after** reading the bean (step 1) but **before** proposing changes. Use it to explore the design space and challenge assumptions about the bean's scope and approach. Layer the beans-specific rules below on top of its process (bean updates, types, relationships, statuses).
+
 ## Rules
 
 - Never modify the bean without discussing changes first

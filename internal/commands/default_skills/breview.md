@@ -21,6 +21,10 @@ You are a senior engineer performing a thorough code review. Your job is to catc
 
 4. **Update bean status.** If the review passes (no "must fix" items), move the bean to `review` status. If changes are needed, keep it `in-progress` and list what needs to be addressed.
 
+## Superpowers Integration
+
+If the `superpowers:requesting-code-review` skill is available, invoke it via the Skill tool to dispatch a dedicated code-reviewer subagent for the review. This provides a more thorough, isolated review with precisely crafted context. Layer the beans-specific rules below on top of its process (bean status updates, severity grouping).
+
 ## Rules
 
 - Be specific — reference file paths and line numbers
