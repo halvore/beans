@@ -117,7 +117,8 @@ type listModel struct {
 	idColWidth int                  // ID column width (accounts for tree depth)
 
 	// Active filters
-	tagFilter string // if set, only show beans with this tag
+	tagFilter   string // if set, only show beans with this tag
+	showArchive bool   // if true, show completed/scrapped beans
 
 	// Multi-select state
 	selectedBeans map[string]bool // IDs of beans marked for multi-edit
@@ -169,10 +170,21 @@ func (m listModel) Init() tea.Cmd {
 }
 
 func (m listModel) loadBeans() tea.Msg {
-	// Build filter if tag filter is set
+	// Build filter
 	var filter *model.BeanFilter
-	if m.tagFilter != "" {
-		filter = &model.BeanFilter{Tags: []string{m.tagFilter}}
+	if m.tagFilter != "" || !m.showArchive {
+		filter = &model.BeanFilter{}
+		if m.tagFilter != "" {
+			filter.Tags = []string{m.tagFilter}
+		}
+		if !m.showArchive {
+			// Exclude archive statuses (completed, scrapped)
+			for _, s := range config.DefaultStatuses {
+				if s.Archive {
+					filter.ExcludeStatus = append(filter.ExcludeStatus, s.Name)
+				}
+			}
+		}
 	}
 
 	// Query filtered beans
@@ -445,6 +457,10 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 						return copyBeanIDMsg{ids: []string{item.bean.ID}}
 					}
 				}
+			case "a":
+				// Toggle showing archived (completed/scrapped) beans
+				m.showArchive = !m.showArchive
+				return m, m.loadBeans
 			case "esc", "backspace":
 				// First clear selection if any beans are selected
 				if len(m.selectedBeans) > 0 {
@@ -535,9 +551,16 @@ func (m listModel) Footer() string {
 		selectionPrefix = selectionStyle.Render(fmt.Sprintf("(%d selected) ", len(m.selectedBeans)))
 	}
 
+	// Archive toggle label
+	archiveLabel := "show done"
+	if m.showArchive {
+		archiveLabel = "hide done"
+	}
+
 	if len(m.selectedBeans) > 0 {
 		// When beans are selected, show esc to clear selection
 		help = helpKeyStyle.Render("space") + " " + helpStyle.Render("toggle") + "  " +
+			helpKeyStyle.Render("a") + " " + helpStyle.Render(archiveLabel) + "  " +
 			helpKeyStyle.Render("P") + " " + helpStyle.Render("priority") + "  " +
 			helpKeyStyle.Render("s") + " " + helpStyle.Render("status") + "  " +
 			helpKeyStyle.Render("t") + " " + helpStyle.Render("type") + "  " +
@@ -547,6 +570,7 @@ func (m listModel) Footer() string {
 			helpKeyStyle.Render("q") + " " + helpStyle.Render("quit")
 	} else if m.hasActiveFilter() {
 		help = helpKeyStyle.Render("space") + " " + helpStyle.Render("select") + "  " +
+			helpKeyStyle.Render("a") + " " + helpStyle.Render(archiveLabel) + "  " +
 			helpKeyStyle.Render("enter") + " " + helpStyle.Render("view") + "  " +
 			helpKeyStyle.Render("b") + " " + helpStyle.Render("blocking") + "  " +
 			helpKeyStyle.Render("c") + " " + helpStyle.Render("create") + "  " +
@@ -561,6 +585,7 @@ func (m listModel) Footer() string {
 			helpKeyStyle.Render("q") + " " + helpStyle.Render("quit")
 	} else {
 		help = helpKeyStyle.Render("space") + " " + helpStyle.Render("select") + "  " +
+			helpKeyStyle.Render("a") + " " + helpStyle.Render(archiveLabel) + "  " +
 			helpKeyStyle.Render("enter") + " " + helpStyle.Render("view") + "  " +
 			helpKeyStyle.Render("b") + " " + helpStyle.Render("blocking") + "  " +
 			helpKeyStyle.Render("c") + " " + helpStyle.Render("create") + "  " +
