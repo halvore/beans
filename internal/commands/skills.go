@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -12,9 +13,25 @@ import (
 //go:embed default_skills/*.md
 var defaultSkillsFS embed.FS
 
-// installSkills writes the embedded default skill files directly into the
-// given target directory. Existing files are not overwritten unless force is true.
-func installSkills(targetDir string, force bool) (int, error) {
+// skillFormat describes how skill files are laid out on disk.
+type skillFormat int
+
+const (
+	// skillFormatFlat writes skill files as flat .md files in a single directory.
+	// e.g. ~/.codex/skills/beans/bplan.md
+	skillFormatFlat skillFormat = iota
+
+	// skillFormatNative writes each skill in its own subdirectory as SKILL.md
+	// with YAML frontmatter, matching Claude Code's native skill discovery.
+	// e.g. ~/.claude/skills/beans-bplan/SKILL.md
+	skillFormatNative
+)
+
+const skillPrefix = "beans-"
+
+// installSkills writes the embedded default skill files to the target directory.
+// Existing files are not overwritten unless force is true.
+func installSkills(targetDir string, format skillFormat, force bool) (int, error) {
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return 0, fmt.Errorf("failed to create skills directory %s: %w", targetDir, err)
 	}
@@ -30,7 +47,32 @@ func installSkills(targetDir string, force bool) (int, error) {
 			continue
 		}
 
-		destPath := filepath.Join(targetDir, entry.Name())
+		data, err := defaultSkillsFS.ReadFile("default_skills/" + entry.Name())
+		if err != nil {
+			return installed, fmt.Errorf("failed to read embedded skill %s: %w", entry.Name(), err)
+		}
+
+		var destPath string
+		var content []byte
+
+		switch format {
+		case skillFormatNative:
+			name := strings.TrimSuffix(entry.Name(), ".md")
+			skillDir := filepath.Join(targetDir, skillPrefix+name)
+			destPath = filepath.Join(skillDir, "SKILL.md")
+
+			// Generate YAML frontmatter from the heading.
+			desc := extractDescriptionFromContent(string(data))
+			frontmatter := fmt.Sprintf("---\nname: %s\ndescription: %s\n---\n\n", name, desc)
+			content = append([]byte(frontmatter), data...)
+
+			if err := os.MkdirAll(skillDir, 0755); err != nil {
+				return installed, fmt.Errorf("failed to create skill directory %s: %w", skillDir, err)
+			}
+		default:
+			destPath = filepath.Join(targetDir, entry.Name())
+			content = data
+		}
 
 		if !force {
 			if _, err := os.Stat(destPath); err == nil {
@@ -38,12 +80,7 @@ func installSkills(targetDir string, force bool) (int, error) {
 			}
 		}
 
-		data, err := defaultSkillsFS.ReadFile("default_skills/" + entry.Name())
-		if err != nil {
-			return installed, fmt.Errorf("failed to read embedded skill %s: %w", entry.Name(), err)
-		}
-
-		if err := os.WriteFile(destPath, data, 0644); err != nil {
+		if err := os.WriteFile(destPath, content, 0644); err != nil {
 			return installed, fmt.Errorf("failed to write skill %s: %w", entry.Name(), err)
 		}
 		installed++
@@ -52,15 +89,33 @@ func installSkills(targetDir string, force bool) (int, error) {
 	return installed, nil
 }
 
+// extractDescriptionFromContent extracts the description from skill file content.
+// It looks for a heading like "# /bplan — Critical Bean Planning" and returns
+// "Critical Bean Planning". Falls back to the full heading text.
+func extractDescriptionFromContent(content string) string {
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "# ") {
+			heading := strings.TrimPrefix(line, "# ")
+			if idx := strings.Index(heading, " — "); idx >= 0 {
+				return strings.TrimSpace(heading[idx+len(" — "):])
+			}
+			return heading
+		}
+	}
+	return ""
+}
+
 // agentTool represents a supported AI coding agent tool.
 type agentTool struct {
-	Name    string // display name (e.g. "Claude")
-	DirName string // home directory name (e.g. ".claude")
+	Name    string      // display name (e.g. "Claude")
+	DirName string      // home directory name (e.g. ".claude")
+	Format  skillFormat // how skill files should be laid out
 }
 
 var supportedTools = []agentTool{
-	{Name: "Claude", DirName: ".claude"},
-	{Name: "Codex", DirName: ".codex"},
+	{Name: "Claude", DirName: ".claude", Format: skillFormatNative},
+	{Name: "Codex", DirName: ".codex", Format: skillFormatFlat},
 }
 
 // detectTools returns the tools that appear to be installed by checking
@@ -77,8 +132,12 @@ func detectTools(home string) []agentTool {
 }
 
 // skillsDir returns the beans skills directory for a given tool.
-// e.g. $HOME/.claude/skills/beans
+// For native format: $HOME/.claude/skills (skills are in beans-<name>/ subdirs)
+// For flat format:   $HOME/.codex/skills/beans
 func skillsDir(home string, tool agentTool) string {
+	if tool.Format == skillFormatNative {
+		return filepath.Join(home, tool.DirName, "skills")
+	}
 	return filepath.Join(home, tool.DirName, "skills", "beans")
 }
 
@@ -86,7 +145,7 @@ func skillsDir(home string, tool agentTool) string {
 func installSkillsForTools(home string, tools []agentTool, force bool) error {
 	for _, tool := range tools {
 		dir := skillsDir(home, tool)
-		installed, err := installSkills(dir, force)
+		installed, err := installSkills(dir, tool.Format, force)
 		if err != nil {
 			return err
 		}
@@ -134,10 +193,10 @@ Existing skill files are preserved unless --force is used.`,
 		explicitChoice := skillsInitClaude || skillsInitCodex
 		if explicitChoice {
 			if skillsInitClaude {
-				tools = append(tools, agentTool{Name: "Claude", DirName: ".claude"})
+				tools = append(tools, agentTool{Name: "Claude", DirName: ".claude", Format: skillFormatNative})
 			}
 			if skillsInitCodex {
-				tools = append(tools, agentTool{Name: "Codex", DirName: ".codex"})
+				tools = append(tools, agentTool{Name: "Codex", DirName: ".codex", Format: skillFormatFlat})
 			}
 		} else {
 			// Auto-detect installed tools.
