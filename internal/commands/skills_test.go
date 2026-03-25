@@ -14,12 +14,12 @@ func TestInstallSkills(t *testing.T) {
 		if err != nil {
 			t.Fatalf("installSkills() error = %v", err)
 		}
-		if installed != 4 {
-			t.Errorf("installed = %d, want 4", installed)
+		if installed != 5 {
+			t.Errorf("installed = %d, want 5", installed)
 		}
 
 		// Verify files exist
-		for _, name := range []string{"bplan.md", "breview.md", "bship.md", "binvestigate.md"} {
+		for _, name := range []string{"bplan.md", "brefine.md", "breview.md", "bship.md", "binvestigate.md"} {
 			path := filepath.Join(targetDir, name)
 			if _, err := os.Stat(path); err != nil {
 				t.Errorf("expected skill file %s to exist", name)
@@ -45,9 +45,9 @@ func TestInstallSkills(t *testing.T) {
 		if err != nil {
 			t.Fatalf("installSkills() error = %v", err)
 		}
-		// Should install 3 (skipping bplan.md)
-		if installed != 3 {
-			t.Errorf("installed = %d, want 3", installed)
+		// Should install 4 (skipping bplan.md)
+		if installed != 4 {
+			t.Errorf("installed = %d, want 4", installed)
 		}
 
 		// Verify custom file was preserved
@@ -68,8 +68,8 @@ func TestInstallSkills(t *testing.T) {
 		if err != nil {
 			t.Fatalf("installSkills() error = %v", err)
 		}
-		if installed != 4 {
-			t.Errorf("installed = %d, want 4", installed)
+		if installed != 5 {
+			t.Errorf("installed = %d, want 5", installed)
 		}
 
 		// Verify custom file was overwritten
@@ -145,7 +145,7 @@ func TestInstallSkillsForTools(t *testing.T) {
 		// Verify skills exist in both directories
 		for _, tool := range tools {
 			dir := skillsDir(home, tool)
-			for _, name := range []string{"bplan.md", "breview.md", "bship.md", "binvestigate.md"} {
+			for _, name := range []string{"bplan.md", "brefine.md", "breview.md", "bship.md", "binvestigate.md"} {
 				path := filepath.Join(dir, name)
 				if _, err := os.Stat(path); err != nil {
 					t.Errorf("expected skill file %s to exist for %s", name, tool.Name)
