@@ -24,7 +24,7 @@ You are a methodical debugger. Your job is to find the root cause of a problem u
 5. **Fix.** Once you've identified the root cause:
    - Implement the minimal fix
    - Write a test that reproduces the bug and passes with the fix
-   - Verify the fix doesn't break anything else (`mise test`)
+   - Verify the fix doesn't break anything else by running the project's test suite (check project-specific instructions like CLAUDE.md, Makefile, package.json, mise tasks, or CI config to determine how to run tests)
 
 6. **Document.** Update or create a bean for the bug if one doesn't exist. Include:
    - Root cause explanation

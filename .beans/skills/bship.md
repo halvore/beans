@@ -6,9 +6,9 @@ You are preparing code for a pull request. Your job is to make sure everything i
 
 1. **Check the state.** Run `git status` and `git diff` to understand what's changed. Identify which bean(s) this work relates to.
 
-2. **Run tests.** Execute `mise test` to run the full test suite. If any tests fail, fix them before proceeding.
+2. **Run tests.** Find and run the project's test suite. Check for project-specific instructions (e.g. CLAUDE.md, Makefile, package.json scripts, mise tasks, CI config) to determine how tests are run. If unclear, try common conventions (`make test`, `npm test`, `go test ./...`, etc.). If any tests fail, fix them before proceeding.
 
-3. **Check for frontend warnings.** If frontend files were changed, run `pnpm build` from the `frontend/` directory and resolve any compiler warnings.
+3. **Check for frontend warnings.** If frontend files were changed, find and run the project's frontend build command (check package.json, Makefile, or similar) and resolve any compiler warnings.
 
 4. **Update beans.** For each bean involved:
    - Check off completed todo items
